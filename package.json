@@ -1,0 +1,74 @@
+{
+  "name": "@makefully/fancifully",
+  "version": "0.1.0",
+  "description": "DOM-based interactive storybook engine with SpringRoll audio and VO↔text sync.",
+  "type": "module",
+  "main": "./dist/fancifully.js",
+  "module": "./dist/fancifully.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/fancifully.js",
+      "default": "./dist/fancifully.js"
+    },
+    "./fancifully.css": "./dist/fancifully.css",
+    "./iife": "./dist/fancifully.iife.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "vite --config vite.demo.config.ts",
+    "build": "vite build --config vite.lib.config.ts && tsc -p tsconfig.build.json --emitDeclarationOnly",
+    "test": "tsx --test tests/*.test.ts",
+    "pack:fanci": "node scripts/pack-fanci.mjs demo/public/stories/demo demo/public/stories/demo.fanci",
+    "pack:check": "npm pack --dry-run",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm test && npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Makefully-Studios/fancifully.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Makefully-Studios/fancifully/issues"
+  },
+  "homepage": "https://github.com/Makefully-Studios/fancifully#readme",
+  "keywords": [
+    "fancifully",
+    "storybook",
+    "interactive",
+    "read-aloud",
+    "epub",
+    "springroll",
+    "makefully"
+  ],
+  "author": "Makefully Studios",
+  "license": "MIT",
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "zod": "^3.24.2"
+  },
+  "peerDependencies": {
+    "springroll": "^2.6.0"
+  },
+  "peerDependenciesMeta": {
+    "springroll": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "springroll": "^2.6.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vite": "^6.0.7"
+  }
+}

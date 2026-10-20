@@ -1,0 +1,10 @@
+# Source / tooling (published surface is dist/ + docs via package.json "files")
+src/
+demo/
+tests/
+scripts/
+vite.*.ts
+tsconfig*.json
+.github/
+*.fanci
+node_modules/

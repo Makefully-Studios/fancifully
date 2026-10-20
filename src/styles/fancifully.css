@@ -1,0 +1,231 @@
+.fc-root {
+  --fc-bg: #e8e2d6;
+  --fc-page-bg: #faf6ef;
+  --fc-ink: #1f1a14;
+  --fc-accent: #c45c26;
+  --fc-cue-active-bg: rgba(196, 92, 38, 0.28);
+  --fc-cue-read-bg: rgba(196, 92, 38, 0.12);
+  --fc-chrome-bg: rgba(31, 26, 20, 0.88);
+  --fc-chrome-fg: #faf6ef;
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(255, 255, 255, 0.45), transparent 50%),
+    linear-gradient(160deg, #f0e6d4 0%, var(--fc-bg) 45%, #d9cfc0 100%);
+  color: var(--fc-ink);
+  font-family: Georgia, 'Times New Roman', serif;
+  outline: none;
+  overflow: hidden;
+}
+
+.fc-root *,
+.fc-root *::before,
+.fc-root *::after {
+  box-sizing: border-box;
+}
+
+.fc-stage {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.fc-spread-viewport {
+  position: relative;
+  overflow: hidden;
+}
+
+.fc-spread-viewport-single {
+  overflow: hidden;
+}
+
+.fc-spread {
+  --fc-page-width: 768px;
+  --fc-page-height: 1024px;
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.fc-leaf {
+  position: relative;
+  width: var(--fc-page-width);
+  height: var(--fc-page-height);
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: var(--fc-page-bg);
+  box-shadow: inset 0 0 0 1px rgba(31, 26, 20, 0.08);
+}
+
+.fc-leaf-left {
+  border-radius: 4px 0 0 4px;
+}
+
+.fc-leaf-right {
+  border-radius: 0 4px 4px 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(31, 26, 20, 0.08),
+    -6px 0 18px rgba(31, 26, 20, 0.12);
+}
+
+.fc-page {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.fc-page-blank {
+  background: transparent;
+  box-shadow: none;
+}
+
+.fc-block {
+  position: absolute;
+}
+
+.fc-block-text {
+  z-index: 2;
+  line-height: 1.35;
+}
+
+.fc-block-image {
+  z-index: 1;
+  overflow: hidden;
+}
+
+.fc-block-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: none;
+}
+
+.fc-block-hotspot {
+  z-index: 3;
+  margin: 0;
+  padding: 0;
+  border: 2px dashed transparent;
+  background: transparent;
+  cursor: pointer;
+}
+
+.fc-block-hotspot:focus-visible {
+  border-color: var(--fc-accent);
+  outline: none;
+}
+
+.fc-block-hotspot:hover {
+  background: rgba(196, 92, 38, 0.08);
+}
+
+.fc-cue.is-active {
+  background: var(--fc-cue-active-bg);
+  border-radius: 0.15em;
+}
+
+.fc-cue.is-read:not(.is-active) {
+  background: var(--fc-cue-read-bg);
+  border-radius: 0.15em;
+}
+
+.fc-captions {
+  position: absolute;
+  left: 50%;
+  bottom: 4.5rem;
+  transform: translateX(-50%);
+  max-width: min(36rem, 90%);
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.35rem;
+  background: rgba(31, 26, 20, 0.82);
+  color: #fff;
+  font-size: 0.95rem;
+  text-align: center;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.fc-captions:empty,
+.fc-captions[hidden] {
+  display: none;
+}
+
+.fc-chrome {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+  padding: 0.65rem;
+  background: var(--fc-chrome-bg);
+  color: var(--fc-chrome-fg);
+}
+
+.fc-btn {
+  appearance: none;
+  border: 1px solid rgba(250, 246, 239, 0.35);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 0.3rem;
+  cursor: pointer;
+}
+
+.fc-btn:hover,
+.fc-btn:focus-visible {
+  background: rgba(250, 246, 239, 0.12);
+  outline: none;
+}
+
+.fc-btn-read {
+  background: var(--fc-accent);
+  border-color: transparent;
+  color: #fff;
+}
+
+/* Page turn — same animation for single and two-page */
+.fc-spread.fc-turn-next .fc-leaf-right {
+  animation: fc-flip-next 0.4s ease forwards;
+  transform-origin: left center;
+}
+
+.fc-spread.fc-turn-prev .fc-leaf-left {
+  animation: fc-flip-prev 0.4s ease forwards;
+  transform-origin: right center;
+}
+
+@keyframes fc-flip-next {
+  from {
+    transform: perspective(1200px) rotateY(0deg);
+  }
+  to {
+    transform: perspective(1200px) rotateY(-90deg);
+  }
+}
+
+@keyframes fc-flip-prev {
+  from {
+    transform: perspective(1200px) rotateY(0deg);
+  }
+  to {
+    transform: perspective(1200px) rotateY(90deg);
+  }
+}
+
+.fc-block-image.lit {
+  filter: brightness(1.15) saturate(1.1);
+  box-shadow: 0 0 24px rgba(255, 200, 80, 0.45);
+}
