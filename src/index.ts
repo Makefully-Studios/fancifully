@@ -1,7 +1,42 @@
 import './styles/fancifully.css';
 
-export { Storybook, type StorybookOptions } from './Storybook.js';
-export { parseStory, storySchema, type Story, type StoryPage, type Cue, type LayoutMode } from './schema/story.js';
+export {
+  Storybook,
+  type StorybookOptions,
+  type StorybookChromeOptions,
+} from './Storybook.js';
+export {
+  parseStory,
+  storySchema,
+  type Story,
+  type StoryPage,
+  type StoryBlock,
+  type Cue,
+  type LayoutMode,
+} from './schema/story.js';
+export { packFanci, downloadBlob, type PackFanciOptions } from './editor/packFanci.js';
+export { storyToFabric, fabricToStory } from './editor/storyFabricMap.js';
+export {
+  boxToPixels,
+  htmlToPlainText,
+  plainTextToHtml,
+  serializeLayoutBox,
+  toPx,
+} from './editor/layoutUnits.js';
+export {
+  FlipStyle,
+  DefaultFlipStyle,
+  createFlipStyle,
+  registerFlipStyle,
+  getRegisteredFlipStyle,
+  listRegisteredFlipStyles,
+  resolveFlipSpeedMs,
+  DEFAULT_FLIP_SPEED_MS,
+  type FlipContext,
+  type FlipDirection,
+  type FlipStyleConstructor,
+  type FlipStyleInput,
+} from './flip/index.js';
 export {
   loadStory,
   revokeLoadedStory,
@@ -14,7 +49,25 @@ export { loadFanciFromBytes, loadFanciFromZip, findStoryJsonPath } from './load/
 export { loadEpubFromBytes, loadEpubFromZip } from './load/loadEpub.js';
 export { parseVtt } from './sync/parseVtt.js';
 export { CueTimeline } from './sync/CueTimeline.js';
-export { buildSpreads, resolveLayoutMode, contentPageIds } from './nav/layoutMode.js';
+export {
+  buildSpreads,
+  buildSingleSpreads,
+  buildTwoPageSpreads,
+  buildFrontCoverSpread,
+  buildBackCoverSpread,
+  resolveLayoutMode,
+  contentPageIds,
+  primaryPageId,
+  findSpreadIndexForPage,
+  type CoverOptions,
+  type BookState,
+} from './nav/layoutMode.js';
+export {
+  HARDBACK_EDGE_RATIO,
+  hardbackEnabled,
+  hardbackOverhang,
+  type HardbackOverhang,
+} from './nav/hardback.js';
 export {
   bindApplication,
   createSpringrollApplication,

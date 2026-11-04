@@ -6,7 +6,11 @@ import path from 'node:path';
  * Pack a story folder (containing story.json) into a .fanci ZIP.
  * Usage: node scripts/pack-fanci.mjs <storyDir> [out.fanci]
  */
-const storyDir = path.resolve(process.argv[2] ?? 'demo/public/stories/demo');
+if (!process.argv[2]) {
+  console.error('Usage: node scripts/pack-fanci.mjs <storyDir> [out.fanci]');
+  process.exit(1);
+}
+const storyDir = path.resolve(process.argv[2]);
 const outFile = path.resolve(
   process.argv[3] ?? path.join(path.dirname(storyDir), `${path.basename(storyDir)}.fanci`),
 );

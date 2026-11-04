@@ -13,5 +13,5 @@
     "rootDir": ".",
     "baseUrl": "."
   },
-  "include": ["src", "demo", "tests", "vite.*.ts"]
+  "include": ["src", "editor", "tests", "vite.*.ts"]
 }

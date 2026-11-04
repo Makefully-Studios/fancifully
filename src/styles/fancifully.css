@@ -7,6 +7,19 @@
   --fc-cue-read-bg: rgba(196, 92, 38, 0.12);
   --fc-chrome-bg: rgba(31, 26, 20, 0.88);
   --fc-chrome-fg: #faf6ef;
+  --fc-chrome-padding: 0.65rem;
+  --fc-captions-bg: rgba(31, 26, 20, 0.82);
+  --fc-captions-fg: #fff;
+  --fc-captions-bottom: 4.5rem;
+  --fc-btn-border: rgba(250, 246, 239, 0.35);
+  --fc-btn-hover-bg: rgba(250, 246, 239, 0.12);
+  --fc-btn-read-bg: var(--fc-accent);
+  --fc-btn-read-fg: #fff;
+  /* Set to url("…") to use image buttons; label text is visually hidden */
+  --fc-btn-prev-image: none;
+  --fc-btn-next-image: none;
+  --fc-btn-read-image: none;
+  --fc-btn-image-size: 3.5rem;
   box-sizing: border-box;
   position: relative;
   display: flex;
@@ -40,6 +53,8 @@
 }
 
 .fc-spread-viewport {
+  --fc-hardback-overhang-x: 0px;
+  --fc-hardback-overhang-y: 0px;
   position: relative;
   overflow: hidden;
 }
@@ -48,14 +63,60 @@
   overflow: hidden;
 }
 
+.fc-hardback {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: row;
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform;
+}
+
+.fc-hardback-board {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: var(--fc-page-bg);
+  box-shadow: inset 0 0 0 1px rgba(31, 26, 20, 0.1);
+}
+
+.fc-hardback-board-left {
+  border-radius: 6px 0 0 6px;
+}
+
+.fc-hardback-board-right {
+  border-radius: 0 6px 6px 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(31, 26, 20, 0.1),
+    -4px 0 14px rgba(31, 26, 20, 0.14);
+}
+
+.fc-hardback-page {
+  width: 100%;
+  height: 100%;
+}
+
+.fc-spread-viewport.fc-hardback-open .fc-spread {
+  position: absolute;
+  z-index: 1;
+}
+
 .fc-spread {
   --fc-page-width: 768px;
   --fc-page-height: 1024px;
+  --fc-flip-duration: 400ms;
   position: relative;
   display: flex;
   flex-direction: row;
-  transform-origin: center center;
+  transform-origin: left top;
   will-change: transform;
+}
+
+.fc-leaf.fc-leaf-dimmed {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .fc-leaf {
@@ -98,6 +159,17 @@
 .fc-block-text {
   z-index: 2;
   line-height: 1.35;
+}
+
+/* Match Fabric Textbox (no UA paragraph margins) so edit ↔ read doesn't jump. */
+.fc-block-text p,
+.fc-block-text h1,
+.fc-block-text h2,
+.fc-block-text h3,
+.fc-block-text h4,
+.fc-block-text h5,
+.fc-block-text h6 {
+  margin: 0;
 }
 
 .fc-block-image {
@@ -144,13 +216,13 @@
 .fc-captions {
   position: absolute;
   left: 50%;
-  bottom: 4.5rem;
+  bottom: var(--fc-captions-bottom);
   transform: translateX(-50%);
   max-width: min(36rem, 90%);
   padding: 0.4rem 0.75rem;
   border-radius: 0.35rem;
-  background: rgba(31, 26, 20, 0.82);
-  color: #fff;
+  background: var(--fc-captions-bg);
+  color: var(--fc-captions-fg);
   font-size: 0.95rem;
   text-align: center;
   pointer-events: none;
@@ -167,15 +239,23 @@
   gap: 0.5rem;
   justify-content: center;
   align-items: center;
-  padding: 0.65rem;
+  padding: var(--fc-chrome-padding);
   background: var(--fc-chrome-bg);
   color: var(--fc-chrome-fg);
 }
 
+.fc-chrome[hidden] {
+  display: none;
+}
+
 .fc-btn {
   appearance: none;
-  border: 1px solid rgba(250, 246, 239, 0.35);
-  background: transparent;
+  border: 1px solid var(--fc-btn-border);
+  background-color: transparent;
+  background-image: none;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
   color: inherit;
   font: inherit;
   font-size: 0.95rem;
@@ -186,24 +266,64 @@
 
 .fc-btn:hover,
 .fc-btn:focus-visible {
-  background: rgba(250, 246, 239, 0.12);
+  background-color: var(--fc-btn-hover-bg);
   outline: none;
 }
 
-.fc-btn-read {
-  background: var(--fc-accent);
-  border-color: transparent;
-  color: #fff;
+.fc-btn:disabled,
+.fc-btn.is-disabled {
+  opacity: 0.35;
+  pointer-events: none;
+  cursor: default;
 }
 
-/* Page turn — same animation for single and two-page */
+.fc-btn-prev {
+  background-image: var(--fc-btn-prev-image);
+}
+
+.fc-btn-next {
+  background-image: var(--fc-btn-next-image);
+}
+
+.fc-btn-read {
+  background-color: var(--fc-btn-read-bg);
+  background-image: var(--fc-btn-read-image);
+  border-color: transparent;
+  color: var(--fc-btn-read-fg);
+}
+
+/* Host sets --fc-btn-*-image and adds .fc-chrome--images (or chrome.className). */
+.fc-chrome.fc-chrome--images .fc-btn {
+  width: var(--fc-btn-image-size);
+  height: var(--fc-btn-image-size);
+  padding: 0;
+  border: none;
+  background-color: transparent;
+  color: transparent;
+  font-size: 0;
+  line-height: 0;
+  text-indent: -999em;
+  overflow: hidden;
+}
+
+.fc-chrome.fc-chrome--images .fc-btn:hover,
+.fc-chrome.fc-chrome--images .fc-btn:focus-visible {
+  background-color: transparent;
+  filter: brightness(1.08);
+}
+
+.fc-chrome.fc-chrome--images .fc-btn-read {
+  background-color: transparent;
+}
+
+/* Page turn — duration from --fc-flip-duration (set by FlipStyle / flip.speed) */
 .fc-spread.fc-turn-next .fc-leaf-right {
-  animation: fc-flip-next 0.4s ease forwards;
+  animation: fc-flip-next var(--fc-flip-duration) ease forwards;
   transform-origin: left center;
 }
 
 .fc-spread.fc-turn-prev .fc-leaf-left {
-  animation: fc-flip-prev 0.4s ease forwards;
+  animation: fc-flip-prev var(--fc-flip-duration) ease forwards;
   transform-origin: right center;
 }
 
@@ -228,4 +348,128 @@
 .fc-block-image.lit {
   filter: brightness(1.15) saturate(1.1);
   box-shadow: 0 0 24px rgba(255, 200, 80, 0.45);
+}
+
+/* Editor mode (StorybookOptions.editor) */
+.fc-editor-chrome {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+
+.fc-editor-chrome > * {
+  pointer-events: auto;
+}
+
+.fc-editor-toggle {
+  appearance: none;
+  border: 1px solid rgba(31, 26, 20, 0.25);
+  background: rgba(250, 246, 239, 0.95);
+  color: var(--fc-ink);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.3rem;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(31, 26, 20, 0.12);
+}
+
+.fc-editor-toggle:hover,
+.fc-editor-toggle:focus-visible {
+  background: #fff;
+  outline: none;
+}
+
+.fc-editor-toggle.is-active {
+  background: var(--fc-accent);
+  border-color: transparent;
+  color: #fff;
+}
+
+.fc-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  max-width: min(22rem, calc(100vw - 1.5rem));
+  padding: 0.45rem;
+  border-radius: 0.35rem;
+  background: rgba(31, 26, 20, 0.9);
+  color: #faf6ef;
+  box-shadow: 0 2px 10px rgba(31, 26, 20, 0.25);
+}
+
+.fc-editor-toolbar[hidden] {
+  display: none;
+}
+
+.fc-editor-btn {
+  appearance: none;
+  border: 1px solid rgba(250, 246, 239, 0.35);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.fc-editor-btn:hover,
+.fc-editor-btn:focus-visible {
+  background: rgba(250, 246, 239, 0.12);
+  outline: none;
+}
+
+.fc-editor-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.fc-editor-btn-download {
+  background: var(--fc-accent);
+  border-color: transparent;
+  color: #fff;
+}
+
+.fc-editor-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.fc-page-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  width: 100%;
+  height: 100%;
+}
+
+.fc-page-canvas .canvas-container {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.fc-page-canvas canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.fc-root.fc-editing .fc-page[hidden] {
+  display: none;
+}
+
+/* Book nav (prev/read/next) is hidden while editing — page surface must not turn. */
+.fc-root.fc-editing .fc-chrome {
+  display: none;
 }

@@ -1,6 +1,6 @@
 {
   "name": "@makefully/fancifully",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DOM-based interactive storybook engine with SpringRoll audio and VO↔text sync.",
   "type": "module",
   "main": "./dist/fancifully.js",
@@ -26,7 +26,7 @@
     "dev": "vite --config vite.demo.config.ts",
     "build": "vite build --config vite.lib.config.ts && tsc -p tsconfig.build.json --emitDeclarationOnly",
     "test": "tsx --test tests/*.test.ts",
-    "pack:fanci": "node scripts/pack-fanci.mjs demo/public/stories/demo demo/public/stories/demo.fanci",
+    "pack:fanci": "node scripts/pack-fanci.mjs",
     "pack:check": "npm pack --dry-run",
     "prepack": "npm run build",
     "prepublishOnly": "npm test && npm run build"
@@ -54,6 +54,7 @@
   "author": "Makefully Studios",
   "license": "MIT",
   "dependencies": {
+    "fabric": "^6.6.5",
     "fflate": "^0.8.3",
     "zod": "^3.24.2"
   },

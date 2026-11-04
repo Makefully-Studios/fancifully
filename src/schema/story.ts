@@ -112,9 +112,27 @@ export const storySchema = z.object({
     width: z.number().positive(),
     height: z.number().positive(),
   }),
+  /**
+   * First page is a front cover: starts closed (centered); page-flips open to
+   * interior content (cover omitted from open spreads).
+   */
+  frontCover: z.boolean().optional().default(false),
+  /**
+   * Last page is a back cover: omitted from open spreads; page-flips closed
+   * to a centered back cover after the final interior spread.
+   */
+  backCover: z.boolean().optional().default(false),
+  /**
+   * Front/back cover boards are larger than interior pages. When open, the
+   * cover stays behind the spread so a rim of cover remains visible.
+   * Only applies when `frontCover` and/or `backCover` is set.
+   */
+  hardback: z.boolean().optional().default(false),
   layout: z
     .object({
-      mode: z.enum(['single', 'two-page', 'auto']).default('auto'),
+      /** `single` = one-page; `two-page`; `responsive` = orientation; `auto` = width breakpoint */
+      mode: z.enum(['single', 'two-page', 'responsive', 'auto']).default('auto'),
+      /** Used when `mode` is `auto` (width ≥ breakpoint → two-page). */
       singleBreakpoint: z.number().positive().default(900),
     })
     .default({ mode: 'auto', singleBreakpoint: 900 }),
@@ -139,7 +157,7 @@ export type StoryBlock = z.infer<typeof blockSchema>;
 export type StoryAsset = z.infer<typeof assetSchema>;
 export type Cue = z.infer<typeof cueSchema>;
 export type LayoutBox = z.infer<typeof layoutBoxSchema>;
-export type LayoutMode = 'single' | 'two-page' | 'auto';
+export type LayoutMode = 'single' | 'two-page' | 'responsive' | 'auto';
 export type ResolvedLayoutMode = 'single' | 'two-page';
 export type TapAction = z.infer<typeof tapActionSchema>;
 export type AudioChannel = 'vo' | 'sfx' | 'music';
