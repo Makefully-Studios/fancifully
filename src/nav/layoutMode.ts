@@ -1,11 +1,19 @@
-import type { LayoutMode, ResolvedLayoutMode } from '../schema/story.js';
+/** How a reader presents pages. Not stored on the story. */
+export type LayoutMode = 'single' | 'two-page' | 'responsive' | 'auto';
+/** Concrete presentation after resolving `responsive` / `auto`. */
+export type ResolvedLayoutMode = 'single' | 'two-page';
+
+/** Reader default when the host does not pass a layout mode. */
+export const DEFAULT_LAYOUT_MODE: LayoutMode = 'auto';
+/** Width where `auto` switches to two-page, in CSS pixels. */
+export const DEFAULT_SINGLE_BREAKPOINT = 900;
 
 /**
- * Resolve authoring layout mode to a concrete single / two-page presentation.
+ * Resolve a reader layout mode to a concrete single / two-page presentation.
  *
  * - `single` / `two-page`: fixed
  * - `responsive`: landscape (width ≥ height) → two-page; portrait → single
- * - `auto`: width ≥ singleBreakpoint → two-page (legacy width breakpoint)
+ * - `auto`: width ≥ singleBreakpoint → two-page
  */
 export function resolveLayoutMode(
   mode: LayoutMode,

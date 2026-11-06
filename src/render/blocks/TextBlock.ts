@@ -22,6 +22,8 @@ export function renderTextBlock(
     if (block.style.color) el.style.color = block.style.color;
     if (block.style.textAlign) el.style.textAlign = block.style.textAlign;
     if (block.style.lineHeight != null) el.style.lineHeight = String(block.style.lineHeight);
+    if (block.style.fontWeight) el.style.fontWeight = block.style.fontWeight;
+    if (block.style.fontStyle) el.style.fontStyle = block.style.fontStyle;
   }
 
   return el;

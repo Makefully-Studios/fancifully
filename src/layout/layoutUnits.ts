@@ -154,6 +154,27 @@ export function resolveCssLineHeight(
  */
 export const FABRIC_CSS_FONT_SIZE_MULT = 1;
 
+/** Scale every block box so it keeps its place on a new page size. */
+export function scaleBlocksToPageSize(
+  blocks: Array<{ layout?: LayoutBox }>,
+  prev: PageSize,
+  next: PageSize,
+): void {
+  if (prev.width === next.width && prev.height === next.height) return;
+  const sx = next.width / prev.width;
+  const sy = next.height / prev.height;
+  for (const block of blocks) {
+    const box = boxToPixels(block.layout, prev);
+    block.layout = {
+      ...block.layout,
+      x: Math.round(box.x * sx),
+      y: Math.round(box.y * sy),
+      width: Math.max(1, Math.round(box.width * sx)),
+      height: Math.max(1, Math.round(box.height * sy)),
+    };
+  }
+}
+
 export function htmlToPlainText(html: string): string {
   if (typeof DOMParser === 'undefined') {
     return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();

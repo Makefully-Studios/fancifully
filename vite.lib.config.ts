@@ -13,13 +13,12 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      external: ['springroll', 'fabric'],
+      external: ['springroll'],
       output: {
         exports: 'named',
         assetFileNames: 'fancifully.css',
         globals: {
           springroll: 'springroll',
-          fabric: 'fabric',
         },
       },
     },

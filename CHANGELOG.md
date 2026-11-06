@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0]
+
+### Added
+
+- Reader layout on the host: `StorybookOptions.layoutMode` / `singleBreakpoint`, `setLayoutMode`, and `layoutPreference` (default `auto`)
+- Authoring fields: `coverSize`, `guides`, cover `innerColor`, and text `fontWeight` / `fontStyle`
+- Fabric-like page and spread interop, plus layout helpers (`boxToPixels`, `scaleBlocksToPageSize`)
+- Package and page APIs: `packFanci`, `downloadFanci`, `addPage`, cover/hardback setters, and `setStageZoom`
+
+### Changed
+
+- Single vs two-page presentation is a reader setting. Stories store pages only; a legacy `layout` object in story JSON is ignored.
+- The Maker UI and demo app left this package. Fabric is no longer a dependency.
+- Chrome buttons use Iconify icons.
+
+### Removed
+
+- In-repo editor and demo (`src/editor`, `vite.demo.config.ts`)
+
 ## [0.2.0]
 
 ### Added

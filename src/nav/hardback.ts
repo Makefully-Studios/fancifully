@@ -11,10 +11,19 @@ export type HardbackOverhang = {
   y: number;
 };
 
-export function hardbackOverhang(pageSize: {
-  width: number;
-  height: number;
-}): HardbackOverhang {
+export function hardbackOverhang(
+  pageSize: {
+    width: number;
+    height: number;
+  },
+  coverSize?: { width: number; height: number },
+): HardbackOverhang {
+  if (coverSize && coverSize.width > 0 && coverSize.height > 0) {
+    return {
+      x: Math.max(0, Math.round((coverSize.width - pageSize.width) / 2)),
+      y: Math.max(0, Math.round((coverSize.height - pageSize.height) / 2)),
+    };
+  }
   return {
     x: Math.max(1, Math.round(pageSize.width * HARDBACK_EDGE_RATIO)),
     y: Math.max(1, Math.round(pageSize.height * HARDBACK_EDGE_RATIO)),

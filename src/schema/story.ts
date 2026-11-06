@@ -62,6 +62,10 @@ const textBlockSchema = z.object({
       color: z.string().optional(),
       textAlign: z.enum(['left', 'center', 'right']).optional(),
       lineHeight: z.union([z.string(), z.number()]).optional(),
+      /** Set only when a real bold face of this family is embedded. */
+      fontWeight: z.string().optional(),
+      /** Set only when a real italic face of this family is embedded. */
+      fontStyle: z.string().optional(),
     })
     .optional(),
 });
@@ -94,6 +98,11 @@ export const pageSchema = z.object({
     .object({
       asset: z.string().optional(),
       color: z.string().optional(),
+      /**
+       * Inside face of a cover. When the book is open, this is the rim around
+       * the interior pages (the inside of the cover).
+       */
+      innerColor: z.string().optional(),
     })
     .optional(),
   readAloud: z
@@ -128,14 +137,30 @@ export const storySchema = z.object({
    * Only applies when `frontCover` and/or `backCover` is set.
    */
   hardback: z.boolean().optional().default(false),
-  layout: z
+  /**
+   * Closed cover board size. When hardback is on, the rim is
+   * `(coverSize - pageSize) / 2` on each edge. Omitted boards use the default overhang.
+   */
+  coverSize: z
     .object({
-      /** `single` = one-page; `two-page`; `responsive` = orientation; `auto` = width breakpoint */
-      mode: z.enum(['single', 'two-page', 'responsive', 'auto']).default('auto'),
-      /** Used when `mode` is `auto` (width ≥ breakpoint → two-page). */
-      singleBreakpoint: z.number().positive().default(900),
+      width: z.number().positive(),
+      height: z.number().positive(),
     })
-    .default({ mode: 'auto', singleBreakpoint: 900 }),
+    .optional(),
+  /** Editor alignment guides. The player ignores these. */
+  guides: z
+    .object({
+      marginTop: z.number().nonnegative().default(48),
+      marginRight: z.number().nonnegative().default(48),
+      marginBottom: z.number().nonnegative().default(48),
+      marginLeft: z.number().nonnegative().default(48),
+      /** Snap band around the gutter, in pixels. The split stays at page width. */
+      gutterBand: z.number().nonnegative().default(8),
+      showGuides: z.boolean().default(true),
+      snapGuides: z.boolean().default(true),
+      snapObjects: z.boolean().default(true),
+    })
+    .optional(),
   fonts: z
     .array(
       z.object({
@@ -152,13 +177,12 @@ export const storySchema = z.object({
 });
 
 export type Story = z.infer<typeof storySchema>;
+export type BookGuides = NonNullable<Story['guides']>;
 export type StoryPage = z.infer<typeof pageSchema>;
 export type StoryBlock = z.infer<typeof blockSchema>;
 export type StoryAsset = z.infer<typeof assetSchema>;
 export type Cue = z.infer<typeof cueSchema>;
 export type LayoutBox = z.infer<typeof layoutBoxSchema>;
-export type LayoutMode = 'single' | 'two-page' | 'responsive' | 'auto';
-export type ResolvedLayoutMode = 'single' | 'two-page';
 export type TapAction = z.infer<typeof tapActionSchema>;
 export type AudioChannel = 'vo' | 'sfx' | 'music';
 

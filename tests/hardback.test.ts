@@ -16,6 +16,12 @@ describe('hardback', () => {
     assert.ok(oh.y >= 1);
   });
 
+  it('uses an explicit cover board when coverSize is set', () => {
+    const oh = hardbackOverhang({ width: 600, height: 800 }, { width: 660, height: 880 });
+    assert.equal(oh.x, 30);
+    assert.equal(oh.y, 40);
+  });
+
   it('requires hardback flag plus a cover', () => {
     assert.equal(hardbackEnabled({ hardback: true }), false);
     assert.equal(hardbackEnabled({ hardback: true, frontCover: true }), true);

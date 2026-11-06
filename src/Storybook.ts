@@ -1,15 +1,15 @@
 import { AudioBus } from './audio/AudioBus.js';
 import { ReadAloudPlayer, type ReadAloudClip } from './audio/ReadAloudPlayer.js';
-import { EditorChrome } from './editor/EditorChrome.js';
-import { downloadBlob, packFanci } from './editor/packFanci.js';
-import { PageCanvas } from './editor/PageCanvas.js';
 import type { FlipStyleInput } from './flip/index.js';
 import { bindSwipe } from './interaction/Pointer.js';
-import { loadStory, revokeLoadedStory, type LoadedStory } from './load/loadStory.js';
+import { findFanciFile, isFanciFile } from './load/fanciFile.js';
+import { loadStory, revokeLoadedStory, type LoadedAssets, type LoadedStory } from './load/loadStory.js';
 import type { StorySource } from './load/packageTypes.js';
+import type { LayoutMode } from './nav/layoutMode.js';
 import { Pager, type PagerEvents } from './nav/Pager.js';
-import { SpreadView } from './render/SpreadView.js';
-import type { Cue, LayoutMode, Story, StoryPage, TapAction } from './schema/story.js';
+import { downloadBlob, packFanci } from './pack/packFanci.js';
+import { SpreadView, type StageZoom } from './render/SpreadView.js';
+import type { Cue, Story, StoryPage, TapAction } from './schema/story.js';
 import {
   bindApplication,
   createSpringrollApplication,
@@ -20,6 +20,7 @@ import {
   reportSpringrollProgress,
   type LoadProgress,
 } from './springroll/loading.js';
+import { setButtonIconContent } from './ui/iconifyIcon.js';
 
 export type StorybookChromeOptions = {
   /** Hide built-in chrome (host can call next/prev/playReadAloud). */
@@ -51,10 +52,19 @@ export type StorybookOptions = {
   /** Flip duration in milliseconds. Host setting (not part of story JSON). */
   flipSpeed?: number;
   /**
-   * When true, mount editor chrome (Edit toggle, page CRUD, cover flags, Download .fanci).
-   * Does not start in edit mode. Hosts should gate with their prod flag (e.g. `import.meta.env.DEV`).
+   * How pages are presented: one at a time, facing pairs, by orientation, or
+   * by stage width. Host setting (not part of story JSON). Default `auto`.
    */
-  editor?: boolean;
+  layoutMode?: LayoutMode;
+  /** Stage width in px where `auto` switches to two-page. Default 900. */
+  singleBreakpoint?: number;
+};
+
+export type EditableLeaf = {
+  side: 'left' | 'right';
+  pageIndex: number;
+  pageId: string;
+  slot: HTMLElement;
 };
 
 type StorybookEvents = PagerEvents & {
@@ -97,16 +107,12 @@ export class Storybook {
   private btnPrev: HTMLButtonElement;
   private btnRead: HTMLButtonElement;
   private btnNext: HTMLButtonElement;
-  private editorEnabled: boolean;
-  private editing = false;
   private chromeHiddenByOptions = false;
-  private editorChrome: EditorChrome | null = null;
-  private pageCanvases = new Map<'left' | 'right', PageCanvas>();
-  private editorMounting = false;
-  /** Zip-relative paths → bytes for assets/fonts added during edit (for packFanci). */
-  private editorFiles: Record<string, Uint8Array> = {};
-  /** Default font family for new textboxes (set by dropping a font on empty canvas). */
-  private editorDefaultFontFamily: string | null = null;
+  /** Extra zip paths → bytes (fonts/images added by hosts/editors) for packFanci. */
+  private extraFiles: Record<string, Uint8Array> = {};
+  private defaultFontFamily: string | null = null;
+  /** When true, swipe/keyboard/chrome nav and read-aloud are locked (editor overlay). */
+  private navLocked = false;
 
   private constructor(
     container: HTMLElement,
@@ -116,12 +122,12 @@ export class Storybook {
     chromeOptions: StorybookChromeOptions = {},
     flipStyle?: FlipStyleInput,
     flipSpeed?: number,
-    editorEnabled = false,
+    layoutMode?: LayoutMode,
+    singleBreakpoint?: number,
   ) {
     this.root = container;
     this.loaded = loaded;
     this.springroll = springroll;
-    this.editorEnabled = editorEnabled;
     this.chromeHiddenByOptions = Boolean(chromeOptions.hidden);
 
     this.element = document.createElement('div');
@@ -154,21 +160,36 @@ export class Storybook {
     this.btnPrev.type = 'button';
     this.btnPrev.className = 'fc-btn fc-btn-prev';
     this.btnPrev.setAttribute('aria-label', ariaLabels.prev);
-    this.btnPrev.textContent = labels.prev;
+    setButtonIconContent(this.btnPrev, {
+      icon: 'chevron-left',
+      label: labels.prev,
+      iconOnly: true,
+    });
 
     this.btnRead = document.createElement('button');
     this.btnRead.type = 'button';
     this.btnRead.className = 'fc-btn fc-btn-read';
     this.btnRead.setAttribute('aria-label', ariaLabels.read);
-    this.btnRead.textContent = labels.read;
+    setButtonIconContent(this.btnRead, {
+      icon: 'book-open-page-variant',
+      label: labels.read,
+      iconOnly: true,
+    });
 
     this.btnNext = document.createElement('button');
     this.btnNext.type = 'button';
     this.btnNext.className = 'fc-btn fc-btn-next';
     this.btnNext.setAttribute('aria-label', ariaLabels.next);
-    this.btnNext.textContent = labels.next;
+    setButtonIconContent(this.btnNext, {
+      icon: 'chevron-right',
+      label: labels.next,
+      iconOnly: true,
+    });
 
-    this.chrome.append(this.btnPrev, this.btnRead, this.btnNext);
+    const navPeapod = document.createElement('div');
+    navPeapod.className = 'fc-nav-peapod';
+    navPeapod.append(this.btnPrev, this.btnRead, this.btnNext);
+    this.chrome.append(navPeapod);
 
     this.spreadView = new SpreadView(
       loaded.story,
@@ -179,7 +200,10 @@ export class Storybook {
         flipSpeed,
       },
     );
-    this.pager = new Pager(loaded.story, this.spreadView);
+    this.pager = new Pager(loaded.story, this.spreadView, {
+      mode: layoutMode,
+      singleBreakpoint,
+    });
     this.readAloud = new ReadAloudPlayer(this.bus);
     this.sfxAudio = new Audio();
     this.bus.register(this.sfxAudio, 'sfx');
@@ -194,15 +218,15 @@ export class Storybook {
     this.wireResize();
     this.unbindSwipe = bindSwipe(this.stage, {
       onSwipeLeft: () => {
-        if (!this.editing) void this.next();
+        if (!this.navLocked) void this.next();
       },
       onSwipeRight: () => {
-        if (!this.editing) void this.prev();
+        if (!this.navLocked) void this.prev();
       },
     });
 
     this.element.addEventListener('keydown', (event) => {
-      if (this.editing) return;
+      if (this.navLocked) return;
       if (event.key === 'ArrowRight') {
         event.preventDefault();
         void this.next();
@@ -219,10 +243,6 @@ export class Storybook {
       this.captionsEl.textContent = text ?? '';
       this.captionsEl.hidden = !text;
     });
-
-    if (this.editorEnabled) {
-      this.mountEditorChrome();
-    }
   }
 
   static async create(container: HTMLElement, options: StorybookOptions): Promise<Storybook> {
@@ -230,14 +250,11 @@ export class Storybook {
     let springroll = options.springroll ?? null;
     let loadGate: { resolve: () => void } | null = null;
 
-    // Create SpringRoll first so Container can show a loading bar while we unpack/load.
-    // An ApplicationPlugin holds `loaded` / ready until the story gate resolves.
     if (!springroll) {
       const created = await createSpringrollApplication(features);
       if (created) {
         springroll = created.app;
         loadGate = created.loadGate;
-        // Satisfy validateListeners before the plugin preload finishes
         primeSpringrollListeners(springroll);
       }
     }
@@ -258,7 +275,6 @@ export class Storybook {
       onProgress: reportProgress,
     });
 
-    // Release SpringRoll ApplicationPlugin → container.send('loaded') + state.ready
     loadGate?.resolve();
     await waitForSpringrollReady(springroll);
 
@@ -270,7 +286,8 @@ export class Storybook {
       options.chrome ?? {},
       options.flipStyle,
       options.flipSpeed,
-      Boolean(options.editor),
+      options.layoutMode,
+      options.singleBreakpoint,
     );
 
     book.pager.updateLayout(
@@ -281,7 +298,6 @@ export class Storybook {
     book.layoutStage();
     await book.pager.showInitial();
     book.syncChromeNavState();
-    book.syncEditorChromeState();
     book.emit('ready', { story: loaded.story });
     return book;
   }
@@ -290,8 +306,26 @@ export class Storybook {
     return this.loaded.story;
   }
 
+  get assets(): LoadedAssets {
+    return this.loaded.assets;
+  }
+
+  get baseUrl(): string {
+    return this.loaded.baseUrl;
+  }
+
+  /** Mutable list of blob URLs owned by the loaded package (hosts may push). */
+  get blobUrls(): string[] {
+    return this.loaded.blobUrls;
+  }
+
   get layoutMode() {
     return this.pager.layoutMode;
+  }
+
+  /** Host preference (`auto`, `responsive`, …) before it resolves to single or two-page. */
+  get layoutPreference(): LayoutMode {
+    return this.pager.layoutPreference;
   }
 
   get pageIds(): string[] {
@@ -302,8 +336,78 @@ export class Storybook {
     return this.pager.currentSpread.index;
   }
 
-  get isEditing(): boolean {
-    return this.editing;
+  get isNavLocked(): boolean {
+    return this.navLocked;
+  }
+
+  getDefaultFontFamily(): string | null {
+    return this.defaultFontFamily;
+  }
+
+  setDefaultFontFamily(family: string | null): void {
+    this.defaultFontFamily = family;
+  }
+
+  getExtraFiles(): Record<string, Uint8Array> {
+    return this.extraFiles;
+  }
+
+  putExtraFile(path: string, bytes: Uint8Array): void {
+    this.extraFiles[path] = bytes;
+  }
+
+  /**
+   * Lock player navigation (swipe/keys/chrome) for overlay editors.
+   * When locked, also hides book chrome unless the host already hid it.
+   */
+  setNavLocked(locked: boolean): void {
+    this.navLocked = locked;
+    if (locked) {
+      this.readAloud.stop();
+      this.chrome.hidden = true;
+    } else {
+      this.chrome.hidden = this.chromeHiddenByOptions;
+      this.syncChromeNavState();
+    }
+  }
+
+  /** Visible content leaves for overlay editors (Fabric, etc.). */
+  getEditableLeaves(): EditableLeaf[] {
+    const spread = this.pager.currentSpread;
+    return this.spreadView.getEditableLeaves(this.pager.layoutMode, spread).map((leaf) => ({
+      side: leaf.side,
+      pageIndex: leaf.pageIndex,
+      pageId: this.loaded.story.pages[leaf.pageIndex]?.id ?? '',
+      slot: leaf.slot,
+    }));
+  }
+
+  /** The `.fc-spread` book element — host for a spread-wide editor overlay. */
+  getSpreadElement(): HTMLElement {
+    return this.spreadView.bookEl;
+  }
+
+  get bookState() {
+    return this.pager.currentBookState;
+  }
+
+  /** Left/right content pages for the current spread (`null` = blank leaf). */
+  getSpreadPages(): { left: StoryPage | null; right: StoryPage | null } {
+    const spread = this.pager.currentSpread;
+    const pages = this.loaded.story.pages;
+    return {
+      left: spread.left.kind === 'page' ? (pages[spread.left.pageIndex] ?? null) : null,
+      right: spread.right.kind === 'page' ? (pages[spread.right.pageIndex] ?? null) : null,
+    };
+  }
+
+  setPageViewsHidden(hidden: boolean): void {
+    this.spreadView.setPageViewsHidden(hidden);
+  }
+
+  remountCurrent(): void {
+    this.spreadView.remountCurrent();
+    this.layoutStage();
   }
 
   on<K extends keyof StorybookEvents>(event: K, fn: Listener<K>): () => void {
@@ -313,24 +417,28 @@ export class Storybook {
   }
 
   next(): Promise<void> {
-    if (this.editing) return Promise.resolve();
+    if (this.navLocked) return Promise.resolve();
     return this.navigate(() => this.pager.next());
   }
 
   prev(): Promise<void> {
-    if (this.editing) return Promise.resolve();
+    if (this.navLocked) return Promise.resolve();
     return this.navigate(() => this.pager.prev());
   }
 
   goTo(pageId: string): Promise<void> {
-    if (this.editing) return Promise.resolve();
     return this.navigate(() => this.pager.goTo(pageId));
   }
 
+  /** Editor-only. Does not change single vs two-page layout. */
+  setStageZoom(zoom: StageZoom): void {
+    this.spreadView.setStageZoom(zoom);
+    this.stage.classList.toggle('fc-stage-scroll', zoom.mode === 'percent');
+    this.stage.classList.toggle('fc-stage-fit-page', zoom.mode === 'fit-page');
+    this.layoutStage();
+  }
+
   setLayoutMode(mode: LayoutMode): void {
-    if (this.editing) {
-      this.commitEditorCanvases();
-    }
     this.pager.setLayoutMode(
       mode,
       this.root.clientWidth || window.innerWidth,
@@ -339,23 +447,18 @@ export class Storybook {
     this.layoutStage();
     this.syncChromeNavState();
     this.emit('layoutchange', { layoutMode: this.pager.layoutMode });
-    if (this.editing) {
-      void this.mountEditorCanvases();
-    }
   }
 
-  /** Swap page-flip implementation at runtime (id, subclass, or instance). */
   setFlipStyle(style: FlipStyleInput): void {
     this.spreadView.setFlipStyle(style);
   }
 
-  /** Set flip duration in milliseconds. */
   setFlipSpeed(speedMs: number): void {
     this.spreadView.setFlipSpeed(speedMs);
   }
 
   playReadAloud(): Promise<void> {
-    if (this.editing) return Promise.resolve();
+    if (this.navLocked) return Promise.resolve();
     const clips = this.buildReadAloudClips();
     return this.readAloud.playSequence(clips);
   }
@@ -370,60 +473,145 @@ export class Storybook {
     this.readAloud.resume();
   }
 
-  /** Enter Fabric edit mode (requires `editor: true` in options). */
-  async enterEditor(): Promise<void> {
-    if (!this.editorEnabled || this.editing) return;
+  /** Replace the loaded story from a File / URL / Story object. */
+  async replaceStory(source: StorySource | Story, storyName?: string): Promise<void> {
     this.readAloud.stop();
-    this.editing = true;
-    this.element.classList.add('fc-editing');
-    // Hide book nav so clicks/swipes on the page cannot turn spreads while editing.
-    this.chrome.hidden = true;
-    await this.mountEditorCanvases();
-    this.syncEditorChromeState();
-  }
-
-  /** Commit canvases and restore normal PageView rendering. */
-  async exitEditor(): Promise<void> {
-    if (!this.editing) return;
-    const dirty = [...this.pageCanvases.values()].some((c) => c.isDirty);
-    if (dirty) {
-      this.commitEditorCanvases();
-      this.destroyEditorCanvases();
-      this.spreadView.setPageViewsHidden(false);
-      // Remount so PageViews pick up committed story changes.
-      this.spreadView.remountCurrent();
-      this.layoutStage();
-    } else {
-      // No edits: drop overlays and reveal the original PageViews (no remount / no layout rewrite).
-      this.destroyEditorCanvases();
-      this.spreadView.setPageViewsHidden(false);
-    }
-    this.editing = false;
-    this.element.classList.remove('fc-editing');
-    this.chrome.hidden = this.chromeHiddenByOptions;
-    this.syncChromeNavState();
-    this.syncEditorChromeState();
-  }
-
-  /** Commit current edits, pack `.fanci`, and trigger a browser download. */
-  async downloadFanci(filename?: string): Promise<void> {
-    if (this.editing) {
-      this.commitEditorCanvases();
-    }
-    const name = filename ?? `${this.loaded.story.id || 'story'}.fanci`;
-    const blob = await packFanci(this.loaded.story, {
-      baseUrl: this.loaded.baseUrl,
-      files: { ...this.editorFiles },
+    const previous = this.loaded;
+    const loaded = await loadStory(source, {
+      name: storyName ?? (source instanceof File ? source.name : undefined),
     });
+    revokeLoadedStory(previous);
+
+    this.loaded = loaded;
+    this.extraFiles = {};
+    this.defaultFontFamily = null;
+
+    this.spreadView.setLoaded(loaded.story, loaded.assets);
+    this.pager.replaceStory(loaded.story, loaded.story.pages[0]?.id ?? null);
+    this.layoutStage();
+    this.syncChromeNavState();
+    this.emit('ready', { story: loaded.story });
+  }
+
+  /** Open a `.fanci` File (validates extension/MIME). */
+  async openFanciFile(file: File): Promise<void> {
+    if (!isFanciFile(file)) {
+      throw new Error(`Expected a .fanci file, got ${file.name}`);
+    }
+    await this.replaceStory(file, file.name);
+  }
+
+  /** Replace a page in-place and remount the current spread. */
+  async updatePage(page: StoryPage): Promise<void> {
+    const index = this.loaded.story.pages.findIndex((p) => p.id === page.id);
+    if (index < 0) return;
+    this.loaded.story.pages[index] = page;
+    this.spreadView.setStory(this.loaded.story);
+    this.spreadView.remountCurrent();
+    this.layoutStage();
+  }
+
+  async setPages(pages: StoryPage[], preferPageId?: string | null): Promise<void> {
+    this.loaded.story.pages = pages;
+    this.spreadView.setStory(this.loaded.story);
+    this.pager.rebuildFromStory(preferPageId ?? this.pager.currentPageIds[0] ?? null);
+    this.layoutStage();
+    this.syncChromeNavState();
+  }
+
+  async addPage(): Promise<StoryPage> {
+    const page = createBlankPage(this.loaded.story);
+    this.loaded.story.pages.push(page);
+    this.spreadView.setStory(this.loaded.story);
+    this.pager.rebuildFromStory(page.id);
+    this.layoutStage();
+    this.syncChromeNavState();
+    return page;
+  }
+
+  async removePage(pageId: string): Promise<void> {
+    if (this.loaded.story.pages.length <= 1) return;
+    const idx = this.loaded.story.pages.findIndex((p) => p.id === pageId);
+    if (idx < 0) return;
+    this.loaded.story.pages.splice(idx, 1);
+    const prefer =
+      this.loaded.story.pages[Math.min(idx, this.loaded.story.pages.length - 1)]?.id ?? null;
+    this.spreadView.setStory(this.loaded.story);
+    this.pager.rebuildFromStory(prefer);
+    this.layoutStage();
+    this.syncChromeNavState();
+  }
+
+  async reorderPages(fromIndex: number, toIndex: number): Promise<void> {
+    const pages = this.loaded.story.pages;
+    if (
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= pages.length ||
+      toIndex >= pages.length ||
+      fromIndex === toIndex
+    ) {
+      return;
+    }
+    const [moved] = pages.splice(fromIndex, 1);
+    if (!moved) return;
+    pages.splice(toIndex, 0, moved);
+    this.spreadView.setStory(this.loaded.story);
+    this.pager.rebuildFromStory(moved.id);
+    this.layoutStage();
+    this.syncChromeNavState();
+  }
+
+  async setFrontCover(enabled: boolean): Promise<void> {
+    this.loaded.story.frontCover = enabled;
+    this.spreadView.setStory(this.loaded.story);
+    this.pager.rebuildFromStory(this.pager.currentPageIds[0] ?? null);
+    this.layoutStage();
+    this.syncChromeNavState();
+  }
+
+  async setBackCover(enabled: boolean): Promise<void> {
+    this.loaded.story.backCover = enabled;
+    this.spreadView.setStory(this.loaded.story);
+    this.pager.rebuildFromStory(this.pager.currentPageIds[0] ?? null);
+    this.layoutStage();
+    this.syncChromeNavState();
+  }
+
+  async setHardback(enabled: boolean): Promise<void> {
+    this.loaded.story.hardback = enabled;
+    this.spreadView.setStory(this.loaded.story);
+    this.layoutStage();
+  }
+
+  /** Apply a font family to every text block in the story. */
+  applyFontToAllText(family: string): void {
+    this.defaultFontFamily = family;
+    for (const page of this.loaded.story.pages) {
+      for (const block of page.blocks) {
+        if (block.type === 'text') {
+          block.style = { ...block.style, fontFamily: family };
+        }
+      }
+    }
+  }
+
+  async packToBlob(): Promise<Blob> {
+    return packFanci(this.loaded.story, {
+      baseUrl: this.loaded.baseUrl,
+      files: { ...this.extraFiles },
+    });
+  }
+
+  async downloadFanci(filename?: string): Promise<void> {
+    const name = filename ?? `${this.loaded.story.id || 'story'}.fanci`;
+    const blob = await this.packToBlob();
     downloadBlob(blob, name.endsWith('.fanci') ? name : `${name}.fanci`);
   }
 
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
-    this.destroyEditorCanvases();
-    this.editorChrome?.destroy();
-    this.editorChrome = null;
     this.readAloud.destroy();
     this.bus.unregister(this.sfxAudio);
     this.bindings?.destroy();
@@ -437,180 +625,8 @@ export class Storybook {
 
   private async navigate(action: () => Promise<void>): Promise<void> {
     this.readAloud.stop();
-    if (this.editing) {
-      this.commitEditorCanvases();
-      this.destroyEditorCanvases();
-    }
     await action();
     this.layoutStage();
-    if (this.editing) {
-      await this.mountEditorCanvases();
-    }
-  }
-
-  private mountEditorChrome(): void {
-    this.editorChrome = new EditorChrome({
-      onToggleEdit: () => {
-        if (this.editing) void this.exitEditor();
-        else void this.enterEditor();
-      },
-      onAddPage: () => void this.editorAddPage(),
-      onRemovePage: () => void this.editorRemovePage(),
-      onFrontCoverChange: (enabled) => void this.editorSetFrontCover(enabled),
-      onBackCoverChange: (enabled) => void this.editorSetBackCover(enabled),
-      onHardbackChange: (enabled) => void this.editorSetHardback(enabled),
-      onDownload: () => void this.downloadFanci(),
-    });
-    this.element.appendChild(this.editorChrome.element);
-    this.syncEditorChromeState();
-  }
-
-  private syncEditorChromeState(): void {
-    this.editorChrome?.setState({
-      editing: this.editing,
-      frontCover: Boolean(this.loaded.story.frontCover),
-      backCover: Boolean(this.loaded.story.backCover),
-      hardback: Boolean(this.loaded.story.hardback),
-      canRemovePage: this.loaded.story.pages.length > 1,
-    });
-  }
-
-  private editorHost() {
-    return {
-      story: this.loaded.story,
-      assets: this.loaded.assets,
-      editorFiles: this.editorFiles,
-      blobUrls: this.loaded.blobUrls,
-      getDefaultFontFamily: () => this.editorDefaultFontFamily,
-      setDefaultFontFamily: (family: string) => {
-        this.editorDefaultFontFamily = family;
-      },
-      applyFontToAllTextboxes: (family: string) => {
-        this.editorDefaultFontFamily = family;
-        for (const page of this.loaded.story.pages) {
-          for (const block of page.blocks) {
-            if (block.type === 'text') {
-              block.style = { ...block.style, fontFamily: family };
-            }
-          }
-        }
-        for (const canvas of this.pageCanvases.values()) {
-          canvas.applyFontToAllText(family);
-        }
-      },
-    };
-  }
-
-  private async mountEditorCanvases(): Promise<void> {
-    if (!this.editing || this.editorMounting) return;
-    this.editorMounting = true;
-    try {
-      this.destroyEditorCanvases();
-      this.spreadView.setPageViewsHidden(true);
-
-      const spread = this.pager.currentSpread;
-      const leaves = this.spreadView.getEditableLeaves(this.pager.layoutMode, spread);
-      const { width, height } = this.loaded.story.pageSize;
-      const host = this.editorHost();
-
-      for (const leaf of leaves) {
-        const page = this.loaded.story.pages[leaf.pageIndex];
-        if (!page) continue;
-        const canvas = await PageCanvas.create(page, { width, height }, host);
-        leaf.slot.appendChild(canvas.element);
-        canvas.syncLayout();
-        this.pageCanvases.set(leaf.side, canvas);
-      }
-    } finally {
-      this.editorMounting = false;
-    }
-  }
-
-  private commitEditorCanvases(): void {
-    for (const canvas of this.pageCanvases.values()) {
-      const next = canvas.commit();
-      const index = this.loaded.story.pages.findIndex((p) => p.id === next.id);
-      if (index >= 0) {
-        this.loaded.story.pages[index] = next;
-      }
-    }
-  }
-
-  private destroyEditorCanvases(): void {
-    for (const canvas of this.pageCanvases.values()) {
-      canvas.destroy();
-    }
-    this.pageCanvases.clear();
-  }
-
-  private async editorAddPage(): Promise<void> {
-    if (!this.editing) return;
-    this.commitEditorCanvases();
-    const page = createBlankPage(this.loaded.story);
-    this.loaded.story.pages.push(page);
-    this.spreadView.setStory(this.loaded.story);
-    this.destroyEditorCanvases();
-    this.pager.rebuildFromStory(page.id);
-    this.layoutStage();
-    await this.mountEditorCanvases();
-    this.syncChromeNavState();
-    this.syncEditorChromeState();
-  }
-
-  private async editorRemovePage(): Promise<void> {
-    if (!this.editing || this.loaded.story.pages.length <= 1) return;
-    this.commitEditorCanvases();
-    const removeId = this.pager.currentPageIds[0] ?? this.loaded.story.pages[0]?.id;
-    if (!removeId) return;
-    const idx = this.loaded.story.pages.findIndex((p) => p.id === removeId);
-    if (idx < 0) return;
-    this.loaded.story.pages.splice(idx, 1);
-    const prefer =
-      this.loaded.story.pages[Math.min(idx, this.loaded.story.pages.length - 1)]?.id ?? null;
-    this.spreadView.setStory(this.loaded.story);
-    this.destroyEditorCanvases();
-    this.pager.rebuildFromStory(prefer);
-    this.layoutStage();
-    await this.mountEditorCanvases();
-    this.syncChromeNavState();
-    this.syncEditorChromeState();
-  }
-
-  private async editorSetFrontCover(enabled: boolean): Promise<void> {
-    if (!this.editing) return;
-    this.commitEditorCanvases();
-    this.loaded.story.frontCover = enabled;
-    this.spreadView.setStory(this.loaded.story);
-    this.destroyEditorCanvases();
-    this.pager.rebuildFromStory(this.pager.currentPageIds[0] ?? null);
-    this.layoutStage();
-    await this.mountEditorCanvases();
-    this.syncChromeNavState();
-    this.syncEditorChromeState();
-  }
-
-  private async editorSetBackCover(enabled: boolean): Promise<void> {
-    if (!this.editing) return;
-    this.commitEditorCanvases();
-    this.loaded.story.backCover = enabled;
-    this.spreadView.setStory(this.loaded.story);
-    this.destroyEditorCanvases();
-    this.pager.rebuildFromStory(this.pager.currentPageIds[0] ?? null);
-    this.layoutStage();
-    await this.mountEditorCanvases();
-    this.syncChromeNavState();
-    this.syncEditorChromeState();
-  }
-
-  private async editorSetHardback(enabled: boolean): Promise<void> {
-    if (!this.editing) return;
-    this.commitEditorCanvases();
-    this.loaded.story.hardback = enabled;
-    this.spreadView.setStory(this.loaded.story);
-    this.destroyEditorCanvases();
-    this.layoutStage();
-    await this.mountEditorCanvases();
-    this.syncEditorChromeState();
   }
 
   private wireChrome(): void {
@@ -634,21 +650,13 @@ export class Storybook {
     this.pager.on('pagechange', (payload) => {
       this.syncChromeNavState();
       this.emit('pagechange', payload);
-      if (autoPlay && !this.editing) void this.playReadAloud();
+      if (autoPlay && !this.navLocked) void this.playReadAloud();
     });
     this.pager.on('layoutchange', (payload) => {
-      // Orientation / mode flips remount spreads; stop VO mid-sentence.
       this.readAloud.stop();
-      if (this.editing) {
-        this.commitEditorCanvases();
-        this.destroyEditorCanvases();
-      }
       this.layoutStage();
       this.syncChromeNavState();
       this.emit('layoutchange', payload);
-      if (this.editing) {
-        void this.mountEditorCanvases();
-      }
     });
   }
 
@@ -680,13 +688,27 @@ export class Storybook {
 
   private layoutStage(): void {
     const width = this.stage.clientWidth || this.root.clientWidth || window.innerWidth;
-    const height = this.stage.clientHeight || Math.max(320, this.root.clientHeight - 64);
+    let height = this.stage.clientHeight || Math.max(320, this.root.clientHeight - 64);
     this.spreadView.updateStageSize(
       width,
       height,
       this.pager.layoutMode,
       this.pager.currentSpread,
     );
+    // Fit page can be wider than the stage. The horizontal scrollbar then
+    // shrinks the content box, so measure once more and center in that height.
+    if (this.stage.classList.contains('fc-stage-fit-page')) {
+      const fitted = this.stage.clientHeight;
+      if (fitted > 0 && fitted !== height) {
+        height = fitted;
+        this.spreadView.updateStageSize(
+          width,
+          height,
+          this.pager.layoutMode,
+          this.pager.currentSpread,
+        );
+      }
+    }
   }
 
   private buildReadAloudClips(): ReadAloudClip[] {
@@ -734,7 +756,7 @@ export class Storybook {
   }
 
   private handleTapActions(actions: TapAction[], pageEl: HTMLElement): void {
-    if (this.editing) return;
+    if (this.navLocked) return;
     for (const action of actions) {
       if ('play' in action) {
         const meta = this.loaded.assets.audioUrls.get(action.play);
@@ -756,6 +778,8 @@ export class Storybook {
   }
 }
 
+export { findFanciFile };
+
 function createBlankPage(story: Story): StoryPage {
   let n = story.pages.length + 1;
   let id = `page-${n}`;
@@ -771,7 +795,6 @@ function createBlankPage(story: Story): StoryPage {
   };
 }
 
-/** No-op subscribers so SpringRoll validateListeners passes while story assets load. */
 function primeSpringrollListeners(app: SpringrollLike): void {
   const state = app.state;
   if (!state) return;

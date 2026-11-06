@@ -145,7 +145,6 @@ export function loadEpubFromZip(entries: ZipEntries): EpubPackage {
     id: `epub-${slugify(title)}`,
     title,
     pageSize,
-    layout: { mode: 'auto', singleBreakpoint: 900 },
     fonts: [],
     assets,
     pages,

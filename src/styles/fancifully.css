@@ -52,10 +52,25 @@
   touch-action: pan-y;
 }
 
+.fc-stage.fc-stage-scroll {
+  overflow: auto;
+  align-items: safe center;
+  justify-content: safe center;
+}
+
+/* Fit page may be wider than the stage. Keep the page vertically centered and clip the cover margin. */
+.fc-stage.fc-stage-fit-page {
+  overflow-x: auto;
+  overflow-y: hidden;
+  align-items: center;
+  justify-content: safe center;
+}
+
 .fc-spread-viewport {
   --fc-hardback-overhang-x: 0px;
   --fc-hardback-overhang-y: 0px;
   position: relative;
+  flex-shrink: 0;
   overflow: hidden;
 }
 
@@ -138,6 +153,16 @@
   box-shadow:
     inset 0 0 0 1px rgba(31, 26, 20, 0.08),
     -6px 0 18px rgba(31, 26, 20, 0.12);
+}
+
+/* A closed cover is one sheet: hide the blank mate and round every corner. */
+.fc-spread.is-solo-cover .fc-leaf.is-cover-hidden {
+  display: none;
+}
+
+.fc-spread.is-solo-cover .fc-leaf {
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(31, 26, 20, 0.08);
 }
 
 .fc-page {
@@ -248,8 +273,39 @@
   display: none;
 }
 
+.fc-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
+.fc-icon svg {
+  display: block;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.fc-btn-label--sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .fc-btn {
   appearance: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
   border: 1px solid var(--fc-btn-border);
   background-color: transparent;
   background-image: none;
@@ -302,8 +358,12 @@
   color: transparent;
   font-size: 0;
   line-height: 0;
-  text-indent: -999em;
   overflow: hidden;
+}
+
+.fc-chrome.fc-chrome--images .fc-btn .fc-icon,
+.fc-chrome.fc-chrome--images .fc-btn .fc-btn-label {
+  display: none;
 }
 
 .fc-chrome.fc-chrome--images .fc-btn:hover,
@@ -350,126 +410,3 @@
   box-shadow: 0 0 24px rgba(255, 200, 80, 0.45);
 }
 
-/* Editor mode (StorybookOptions.editor) */
-.fc-editor-chrome {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.4rem;
-  pointer-events: none;
-}
-
-.fc-editor-chrome > * {
-  pointer-events: auto;
-}
-
-.fc-editor-toggle {
-  appearance: none;
-  border: 1px solid rgba(31, 26, 20, 0.25);
-  background: rgba(250, 246, 239, 0.95);
-  color: var(--fc-ink);
-  font: inherit;
-  font-size: 0.85rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 0.3rem;
-  cursor: pointer;
-  box-shadow: 0 1px 4px rgba(31, 26, 20, 0.12);
-}
-
-.fc-editor-toggle:hover,
-.fc-editor-toggle:focus-visible {
-  background: #fff;
-  outline: none;
-}
-
-.fc-editor-toggle.is-active {
-  background: var(--fc-accent);
-  border-color: transparent;
-  color: #fff;
-}
-
-.fc-editor-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.35rem;
-  max-width: min(22rem, calc(100vw - 1.5rem));
-  padding: 0.45rem;
-  border-radius: 0.35rem;
-  background: rgba(31, 26, 20, 0.9);
-  color: #faf6ef;
-  box-shadow: 0 2px 10px rgba(31, 26, 20, 0.25);
-}
-
-.fc-editor-toolbar[hidden] {
-  display: none;
-}
-
-.fc-editor-btn {
-  appearance: none;
-  border: 1px solid rgba(250, 246, 239, 0.35);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 0.8rem;
-  padding: 0.3rem 0.55rem;
-  border-radius: 0.25rem;
-  cursor: pointer;
-}
-
-.fc-editor-btn:hover,
-.fc-editor-btn:focus-visible {
-  background: rgba(250, 246, 239, 0.12);
-  outline: none;
-}
-
-.fc-editor-btn:disabled {
-  opacity: 0.35;
-  pointer-events: none;
-}
-
-.fc-editor-btn-download {
-  background: var(--fc-accent);
-  border-color: transparent;
-  color: #fff;
-}
-
-.fc-editor-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.8rem;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.fc-page-canvas {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  width: 100%;
-  height: 100%;
-}
-
-.fc-page-canvas .canvas-container {
-  width: 100% !important;
-  height: 100% !important;
-}
-
-.fc-page-canvas canvas {
-  width: 100% !important;
-  height: 100% !important;
-}
-
-.fc-root.fc-editing .fc-page[hidden] {
-  display: none;
-}
-
-/* Book nav (prev/read/next) is hidden while editing — page surface must not turn. */
-.fc-root.fc-editing .fc-chrome {
-  display: none;
-}

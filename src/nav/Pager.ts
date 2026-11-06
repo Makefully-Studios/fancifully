@@ -3,14 +3,18 @@ import {
   buildFrontCoverSpread,
   buildSpreads,
   contentPageIds,
+  DEFAULT_LAYOUT_MODE,
+  DEFAULT_SINGLE_BREAKPOINT,
   findSpreadIndexForPage,
   primaryPageId,
   resolveLayoutMode,
   type BookState,
   type CoverOptions,
+  type LayoutMode,
+  type ResolvedLayoutMode,
   type Spread,
 } from './layoutMode.js';
-import type { LayoutMode, ResolvedLayoutMode, Story } from '../schema/story.js';
+import type { Story } from '../schema/story.js';
 import type { SpreadView } from '../render/SpreadView.js';
 
 export type PagerEvents = {
@@ -43,11 +47,15 @@ export class Pager {
   private frontCoverSpread: Spread | null = null;
   private backCoverSpread: Spread | null = null;
 
-  constructor(story: Story, spreadView: SpreadView) {
+  constructor(
+    story: Story,
+    spreadView: SpreadView,
+    layout: { mode?: LayoutMode; singleBreakpoint?: number } = {},
+  ) {
     this.story = story;
     this.spreadView = spreadView;
-    this.preferredMode = story.layout.mode;
-    this.breakpoint = story.layout.singleBreakpoint;
+    this.preferredMode = layout.mode ?? DEFAULT_LAYOUT_MODE;
+    this.breakpoint = layout.singleBreakpoint ?? DEFAULT_SINGLE_BREAKPOINT;
     this.covers = {
       frontCover: Boolean(story.frontCover),
       backCover: Boolean(story.backCover),
@@ -59,6 +67,11 @@ export class Pager {
 
   get layoutMode(): ResolvedLayoutMode {
     return this.resolvedMode;
+  }
+
+  /** Host preference before width/orientation resolution. */
+  get layoutPreference(): LayoutMode {
+    return this.preferredMode;
   }
 
   get currentBookState(): BookState {
@@ -286,6 +299,13 @@ export class Pager {
     await this.spreadView.showSpread(this.currentSpread, 'prev');
     this.emitPageChange();
     this.busy = false;
+  }
+
+  /** Swap the story reference (e.g. after opening a `.fanci`) and rebuild. */
+  replaceStory(story: Story, preferPageId?: string | null): void {
+    this.story = story;
+    this.bookState = story.frontCover ? 'closed-front' : 'open';
+    this.rebuildFromStory(preferPageId);
   }
 
   /**

@@ -21,12 +21,23 @@ describe('parseStory', () => {
       ],
     });
     assert.equal(story.id, 't');
-    assert.equal(story.layout.mode, 'auto');
+    assert.equal('layout' in story, false);
     assert.equal(story.frontCover, false);
     assert.equal(story.backCover, false);
     assert.equal(story.hardback, false);
     assert.equal('flip' in story, false);
     assert.equal(story.pages[0].blocks[0].type, 'text');
+  });
+
+  it('strips legacy story.layout from JSON', () => {
+    const story = parseStory({
+      id: 't',
+      pageSize: { width: 100, height: 200 },
+      layout: { mode: 'single', singleBreakpoint: 400 },
+      pages: [{ id: 'p1', blocks: [] }],
+    });
+    assert.equal('layout' in story, false);
+    assert.equal(story.pages.length, 1);
   });
 
   it('strips legacy story.flip from JSON', () => {

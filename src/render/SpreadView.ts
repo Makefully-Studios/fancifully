@@ -6,14 +6,20 @@ import {
 } from '../flip/index.js';
 import type { LoadedAssets } from '../load/loadStory.js';
 import { hardbackEnabled, hardbackOverhang } from '../nav/hardback.js';
-import type { BookState, Spread, SpreadLeaf } from '../nav/layoutMode.js';
-import type { ResolvedLayoutMode, Story, TapAction } from '../schema/story.js';
+import type { BookState, ResolvedLayoutMode, Spread, SpreadLeaf } from '../nav/layoutMode.js';
+import type { Story, TapAction } from '../schema/story.js';
 import { PageView } from './PageView.js';
 
 export type SpreadViewFlipOptions = {
   flipStyle?: FlipStyleInput;
   flipSpeed?: number;
 };
+
+/** Editor stage zoom. Independent of single vs two-page layout. */
+export type StageZoom =
+  | { mode: 'fit-spread' }
+  | { mode: 'fit-page' }
+  | { mode: 'percent'; percent: number };
 
 export class SpreadView {
   readonly element: HTMLElement;
@@ -34,6 +40,7 @@ export class SpreadView {
   private bookState: BookState = 'open';
   private layoutMode: ResolvedLayoutMode = 'two-page';
   private lastSize = { width: 0, height: 0 };
+  private stageZoom: StageZoom = { mode: 'fit-spread' };
   private currentSpread: Spread | null = null;
   private flipStyle: FlipStyle;
   private flipSpeedMs: number;
@@ -85,6 +92,17 @@ export class SpreadView {
 
   setFlipSpeed(speedMs: number): void {
     this.flipSpeedMs = resolveFlipSpeedMs(speedMs);
+  }
+
+  setStageZoom(zoom: StageZoom): void {
+    this.stageZoom = zoom;
+    if (this.lastSize.width > 0 && this.lastSize.height > 0) {
+      this.applyStageTransform(
+        this.lastSize.width,
+        this.lastSize.height,
+        this.currentSpread ?? undefined,
+      );
+    }
   }
 
   setLayoutMode(mode: ResolvedLayoutMode): void {
@@ -213,6 +231,18 @@ export class SpreadView {
     );
   }
 
+  /** Replace story + assets after opening a new package. */
+  setLoaded(story: Story, assets: LoadedAssets): void {
+    this.story = story;
+    this.assets = assets;
+    this.syncHardbackBoards();
+    this.applyStageTransform(
+      this.lastSize.width,
+      this.lastSize.height,
+      this.currentSpread ?? undefined,
+    );
+  }
+
   getVisiblePageElements(mode: ResolvedLayoutMode, spread: Spread): HTMLElement[] {
     if (this.bookState === 'closed-front' || this.bookState === 'closed-back') {
       return this.rightPage && spread.right.kind === 'page' ? [this.rightPage.element] : [];
@@ -269,11 +299,14 @@ export class SpreadView {
     const mode = this.layoutMode;
     const state = this.bookState;
     const useHardback = hardbackEnabled(this.story);
-    const oh = useHardback ? hardbackOverhang(this.story.pageSize) : { x: 0, y: 0 };
+    const oh = useHardback
+      ? hardbackOverhang(this.story.pageSize, this.story.coverSize)
+      : { x: 0, y: 0 };
 
     const closed =
       mode === 'two-page' && (state === 'closed-front' || state === 'closed-back');
     const openHardback = useHardback && state === 'open';
+    const soloCover = this.isSoloCover();
 
     this.element.classList.toggle('fc-hardback-active', useHardback);
     this.element.classList.toggle('fc-hardback-open', openHardback);
@@ -290,12 +323,18 @@ export class SpreadView {
       // Closed cover board is larger than pageSize; cover leaf fills the board.
       caseW = pageW + 2 * oh.x;
       caseH = pageH + 2 * oh.y;
-      scale = Math.min(containerWidth / caseW, containerHeight / caseH);
+      scale = this.sizedScale(
+        Math.min(containerWidth / caseW, containerHeight / caseH),
+        pageW,
+        pageH,
+        containerWidth,
+        containerHeight,
+      );
       this.bookEl.style.setProperty('--fc-page-width', `${caseW}px`);
       this.bookEl.style.setProperty('--fc-page-height', `${caseH}px`);
-      this.bookEl.style.width = `${caseW * 2}px`;
+      this.bookEl.style.width = `${soloCover ? caseW : caseW * 2}px`;
       this.bookEl.style.height = `${caseH}px`;
-      offsetX = -caseW * scale;
+      offsetX = soloCover ? 0 : -caseW * scale;
       spreadLeft = 0;
       spreadTop = 0;
       this.hardbackEl.hidden = true;
@@ -303,7 +342,13 @@ export class SpreadView {
       const contentW = mode === 'single' ? pageW : pageW * 2;
       caseW = contentW + 2 * oh.x;
       caseH = pageH + 2 * oh.y;
-      scale = Math.min(containerWidth / caseW, containerHeight / caseH);
+      scale = this.sizedScale(
+        Math.min(containerWidth / caseW, containerHeight / caseH),
+        pageW,
+        pageH,
+        containerWidth,
+        containerHeight,
+      );
 
       this.bookEl.style.setProperty('--fc-page-width', `${pageW}px`);
       this.bookEl.style.setProperty('--fc-page-height', `${pageH}px`);
@@ -313,7 +358,9 @@ export class SpreadView {
       this.hardbackEl.hidden = false;
       this.hardbackEl.style.width = `${caseW}px`;
       this.hardbackEl.style.height = `${caseH}px`;
-      this.sizeHardbackBoards(mode, pageW, pageH, oh.x, oh.y);
+      const visibleSide =
+        mode === 'single' ? (spread?.left.kind === 'blank' ? 'right' : 'left') : 'both';
+      this.sizeHardbackBoards(visibleSide, pageW, pageH, oh.x, oh.y);
 
       spreadLeft = oh.x;
       spreadTop = oh.y;
@@ -327,17 +374,31 @@ export class SpreadView {
       caseW = pageW * 2;
       caseH = pageH;
       if (mode === 'single' || closed) {
-        scale = Math.min(containerWidth / pageW, containerHeight / pageH);
+        scale = this.sizedScale(
+          Math.min(containerWidth / pageW, containerHeight / pageH),
+          pageW,
+          pageH,
+          containerWidth,
+          containerHeight,
+        );
       } else {
-        scale = Math.min(containerWidth / caseW, containerHeight / caseH);
+        scale = this.sizedScale(
+          Math.min(containerWidth / caseW, containerHeight / caseH),
+          pageW,
+          pageH,
+          containerWidth,
+          containerHeight,
+        );
       }
       this.bookEl.style.setProperty('--fc-page-width', `${pageW}px`);
       this.bookEl.style.setProperty('--fc-page-height', `${pageH}px`);
-      this.bookEl.style.width = `${caseW}px`;
+      this.bookEl.style.width = `${soloCover ? pageW : caseW}px`;
       this.bookEl.style.height = `${caseH}px`;
       this.hardbackEl.hidden = true;
 
-      if (closed) {
+      if (soloCover) {
+        offsetX = 0;
+      } else if (closed) {
         offsetX = -pageW * scale;
       } else if (mode === 'single' && spread) {
         if (spread.left.kind === 'blank') {
@@ -352,12 +413,10 @@ export class SpreadView {
     this.hardbackEl.style.transform = `scale(${scale})`;
     this.hardbackEl.style.transformOrigin = 'left top';
 
-    this.bookEl.style.left = openHardback ? `${spreadLeft * scale}px` : '0';
-    this.bookEl.style.top = openHardback ? `${spreadTop * scale}px` : '0';
     this.bookEl.style.transform = `translateX(${offsetX}px) scale(${scale})`;
     this.bookEl.style.transformOrigin = 'left top';
 
-    const viewW =
+    let viewW =
       useHardback && closed
         ? (pageW + 2 * oh.x) * scale
         : openHardback
@@ -365,32 +424,109 @@ export class SpreadView {
           : mode === 'single' || closed
             ? pageW * scale
             : pageW * 2 * scale;
-    const viewH =
+    let viewH =
       useHardback && (closed || openHardback)
         ? (pageH + 2 * oh.y) * scale
         : pageH * scale;
 
+    // Fit page sizes to the page. A larger cover would make that box taller than
+    // the stage, which scrolls and pins the page under the top margin. Crop the
+    // overflow equally so the page stays centered and the stage does not scroll.
+    let shiftX = 0;
+    let shiftY = 0;
+    if (this.stageZoom.mode === 'fit-page') {
+      if (viewH > containerHeight) {
+        shiftY = (viewH - containerHeight) / 2;
+        viewH = containerHeight;
+      }
+      const pagesW = (mode === 'single' || closed || soloCover ? pageW : pageW * 2) * scale;
+      if (pagesW <= containerWidth && viewW > containerWidth) {
+        shiftX = (viewW - containerWidth) / 2;
+        viewW = containerWidth;
+      }
+    }
+
+    const bookLeft = (openHardback ? spreadLeft * scale : 0) - shiftX;
+    const bookTop = (openHardback ? spreadTop * scale : 0) - shiftY;
+    this.hardbackEl.style.left = `${-shiftX}px`;
+    this.hardbackEl.style.top = `${-shiftY}px`;
+    this.bookEl.style.left = `${bookLeft}px`;
+    this.bookEl.style.top = `${bookTop}px`;
+
     this.element.style.width = `${viewW}px`;
     this.element.style.height = `${viewH}px`;
 
-    this.leftSlot.classList.toggle('fc-leaf-dimmed', closed);
+    this.leftSlot.classList.toggle('fc-leaf-dimmed', closed && !soloCover);
     this.rightSlot.classList.remove('fc-leaf-dimmed');
+    this.applySoloCover(soloCover);
+  }
+
+  /** Fit-spread keeps the fitted scale. Fit-page fits one page. Percent is CSS pixels. */
+  private sizedScale(
+    fitScale: number,
+    pageW: number,
+    pageH: number,
+    containerWidth: number,
+    containerHeight: number,
+  ): number {
+    if (this.stageZoom.mode === 'percent') {
+      return Math.max(0.1, this.stageZoom.percent / 100);
+    }
+    if (this.stageZoom.mode === 'fit-page') {
+      return Math.min(containerWidth / pageW, containerHeight / pageH);
+    }
+    return fitScale;
+  }
+
+  /** A front or back cover shown by itself, not as one half of an open spread. */
+  private isSoloCover(): boolean {
+    if (this.bookState === 'closed-front' || this.bookState === 'closed-back') return true;
+    const spread = this.currentSpread;
+    if (!spread) return false;
+    const leftPage = spread.left.kind === 'page';
+    const rightPage = spread.right.kind === 'page';
+    if (leftPage === rightPage) return false;
+    const pageId = leftPage && spread.left.kind === 'page'
+      ? spread.left.pageId
+      : spread.right.kind === 'page'
+        ? spread.right.pageId
+        : null;
+    if (!pageId) return false;
+    const pages = this.story.pages;
+    const isFront = Boolean(this.story.frontCover) && pages[0]?.id === pageId;
+    const isBack = Boolean(this.story.backCover) && pages[pages.length - 1]?.id === pageId;
+    return isFront || isBack;
+  }
+
+  private applySoloCover(active: boolean): void {
+    this.bookEl.classList.toggle('is-solo-cover', active);
+    if (!active || !this.currentSpread) {
+      this.leftSlot.classList.remove('is-cover-hidden');
+      this.rightSlot.classList.remove('is-cover-hidden');
+      return;
+    }
+    const coverOnLeft = this.currentSpread.left.kind === 'page';
+    this.leftSlot.classList.toggle('is-cover-hidden', !coverOnLeft);
+    this.rightSlot.classList.toggle('is-cover-hidden', coverOnLeft);
   }
 
   private sizeHardbackBoards(
-    mode: ResolvedLayoutMode,
+    visibleSide: 'left' | 'right' | 'both',
     pageW: number,
     pageH: number,
     ohX: number,
     ohY: number,
   ): void {
     const boardH = pageH + 2 * ohY;
-    if (mode === 'single') {
+    if (visibleSide !== 'both') {
       // One board behind the visible leaf, full hardback footprint.
-      this.hardbackLeft.style.display = 'none';
-      this.hardbackRight.style.display = '';
-      this.hardbackRight.style.width = `${pageW + 2 * ohX}px`;
-      this.hardbackRight.style.height = `${boardH}px`;
+      // Left board is the front cover's inside; right board is the back cover's.
+      const showLeft = visibleSide === 'left';
+      this.hardbackLeft.style.display = showLeft ? '' : 'none';
+      this.hardbackRight.style.display = showLeft ? 'none' : '';
+      const board = showLeft ? this.hardbackLeft : this.hardbackRight;
+      board.style.width = `${pageW + 2 * ohX}px`;
+      board.style.height = `${boardH}px`;
       return;
     }
     this.hardbackLeft.style.display = '';
@@ -424,10 +560,21 @@ export class SpreadView {
 
     if (!page) {
       slot.replaceChildren();
+      slot.style.background = '';
       if (side === 'left') this.hardbackLeftPage = null;
       else this.hardbackRightPage = null;
       return;
     }
+
+    const innerColor = page.background?.innerColor;
+    if (innerColor) {
+      slot.style.background = innerColor;
+      slot.replaceChildren();
+      if (side === 'left') this.hardbackLeftPage = null;
+      else this.hardbackRightPage = null;
+      return;
+    }
+    slot.style.background = '';
 
     const view = new PageView(page, this.assets, { onTapActions: () => {} });
     view.element.classList.add('fc-hardback-page');
@@ -443,6 +590,8 @@ export class SpreadView {
     this.hardbackRightPage = null;
     this.hardbackLeft.replaceChildren();
     this.hardbackRight.replaceChildren();
+    this.hardbackLeft.style.background = '';
+    this.hardbackRight.style.background = '';
   }
 
   private mountSpread(spread: Spread): void {

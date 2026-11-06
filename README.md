@@ -36,7 +36,7 @@ const book = await Storybook.create(document.getElementById('app')!, {
 book.next();
 book.prev();
 book.playReadAloud();
-book.setLayoutMode('responsive'); // 'single' | 'two-page' | 'responsive' | 'auto'
+book.setLayoutMode('responsive'); // reader setting: 'single' | 'two-page' | 'responsive' | 'auto'
 book.setFlipSpeed(300);
 book.setFlipStyle('default');
 ```
@@ -73,6 +73,25 @@ await Storybook.create(el, {
 
 Built-in: `DefaultFlipStyle` (`"default"`) — CSS 3D leaf turn. The engine uses the same `FlipStyle` base class for built-ins so new styles stay consistent.
 
+### Reader layout
+
+Single page vs facing spread is a **host setting**, like flip style. Stories store a list of pages. The reader decides how to pair them. Legacy `layout` objects in story JSON are ignored.
+
+| API | Role |
+|-----|------|
+| `StorybookOptions.layoutMode` | `single`, `two-page`, `responsive`, or `auto` (default) |
+| `StorybookOptions.singleBreakpoint` | Width where `auto` switches to two-page (default `900`) |
+| `book.setLayoutMode` | Change at runtime |
+| `book.layoutPreference` | The host mode, before it resolves |
+| `book.layoutMode` | Resolved `single` or `two-page` |
+
+- **`two-page`**: facing pairs. With a front cover, open spreads start after the cover.
+- **`single`**: one story page per turn, with a blank mate kept offscreen so the flip stays the same.
+- **`responsive`**: landscape (width ≥ height) → two-page; portrait → single.
+- **`auto`**: two-page when the stage is at least `singleBreakpoint` wide.
+
+When the resolved mode changes, spreads rebuild and the view jumps to the spread that contains the current page.
+
 ## Chrome theming
 
 Built-in Prev / Read / Next live under `.fc-chrome`. Customize via CSS variables on `.fc-root` (or a host class) and optional `chrome` options:
@@ -101,35 +120,21 @@ await Storybook.create(el, {
 
 Prev/next disable at the first/last spread (`disabled` + `.is-disabled`).
 
-## Editor mode
+## Authoring / editor
 
-Pass `editor: true` to mount the corner **Edit** / **Preview** toggle. While editing, visible page leaves become [Fabric.js](http://fabricjs.com/) canvases (text/image blocks). Toolbar actions: add/remove page, front/back cover flags, hardback, and **Download book** (packs a `.fanci` ZIP via `packFanci`). Hotspots are preserved but not Fabric-editable. Hosts should gate the flag so production builds stay reader-only:
+This package is the **player + story API** (load/render/playback, programmatic page mutations, `packFanci`, fabric-like JSON ingest). The Maker UI (Fabric overlays, page list, themes) lives in sibling [`@makefully/fancifully-editor`](../fancifully-editor):
 
 ```ts
-await Storybook.create(el, {
-  story,
-  baseUrl: './stories/demo/',
-  editor: import.meta.env.DEV, // Vite: never true in `vite build`
-});
+import { Storybook } from '@makefully/fancifully';
+import { attachEditor } from '@makefully/fancifully-editor';
+import '@makefully/fancifully/fancifully.css';
+import '@makefully/fancifully-editor/editor.css';
 
-// Or programmatically:
-await book.enterEditor();
-await book.downloadFanci(); // `{story.id}.fanci`
-await book.exitEditor();
+const book = await Storybook.create(el, { story });
+attachEditor(book, { enter: true });
 ```
 
-`fabric` is a dependency of `@makefully/fancifully` and loads via dynamic `import('fabric')` only when edit mode is entered.
-
-### Drag & drop (edit mode)
-
-| Drop | Result |
-|------|--------|
-| Font (`.woff2` / `.woff` / `.ttf` / `.otf`) on empty page | Sets the default text font and applies it to all textboxes; registered in `story.fonts` for `.fanci` export |
-| Font on a textbox | Changes only that textbox’s `fontFamily` (still packed into `.fanci`) |
-| Image (png/jpeg/gif/webp/svg/…) | Places a new image block on the canvas at the drop point |
-| Text (`text/plain`, `text/html`, or `.txt`) | Creates a new textbox with that content |
-
-Dropped fonts/images are stored as zip-relative paths under `fonts/` / `assets/` and included when you **Download book**.
+Write helpers on `Storybook` include `addPage`, `removePage`, `reorderPages`, `setFrontCover` / `setBackCover` / `setHardback`, `updatePage`, `replaceStory`, `downloadFanci`, plus leaf-host APIs for overlays (`getEditableLeaves`, `setPageViewsHidden`, `setNavLocked`).
 
 ## Embed with SpringRoll (Platypus-like)
 
@@ -209,21 +214,11 @@ Stories are JSON packages (not a single HTML document). Text may embed HTML; ima
 | `frontCover` | If true, first page is a closed cover (centered); opens with a tween; no blank to its left |
 | `backCover` | If true, last page is a back cover (no blank to its right); can close centered at the end |
 | `hardback` | If true (with a cover flag), cover boards are larger than interior pages so open spreads show a cover rim |
-| `layout.mode` | `single` (one-page) \| `two-page` \| `responsive` (orientation) \| `auto` (width breakpoint) |
-| `layout.singleBreakpoint` | Width where `auto` switches to two-page |
 | `assets` | Map of image / audio / vtt / html |
 | `pages[].blocks` | `text`, `image`, `hotspot` with `layout` boxes |
 | `pages[].readAloud` | `{ audio, cues }` — cues are a VTT asset id or inline `{id,start,end}[]` |
 
-### Layout modes
-
-- **Always** a left+right spread under the hood (blank mates keep flip geometry).
-- **`two-page`**: facing pairs — cover `[blank, p0]`, then `[p1, p2]`, …
-- **`single` (one-page)**: one story page per spread with a blank mate (about 2× as many spreads). Blank leaf stays offscreen; same flip animation.
-- **`responsive`**: landscape (width ≥ height) → two-page; portrait → single. Remaps to the same content page instantly when orientation changes.
-- **`auto`**: legacy width breakpoint (`singleBreakpoint`).
-
-When the resolved mode flips, Fancifully rebuilds spreads and jumps to the spread that contains the current page (no page-turn animation).
+`pages` is always a flat list. Facing pages are a reader presentation, not a stored spread.
 
 ### Covers (`frontCover` / `backCover` / `hardback`)
 
