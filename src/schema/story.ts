@@ -39,14 +39,18 @@ export const assetSchema = z.discriminatedUnion('type', [
   }),
 ]);
 
+const classTargetSchema = z.object({
+  target: z.string(),
+  className: z.string(),
+});
+
 export const tapActionSchema = z.union([
   z.object({ play: z.string() }),
-  z.object({
-    toggleClass: z.object({
-      target: z.string(),
-      className: z.string(),
-    }),
-  }),
+  z.object({ toggleClass: classTargetSchema }),
+  z.object({ addClass: classTargetSchema }),
+  z.object({ removeClass: classTargetSchema }),
+  /** Remove then re-add on the next frame so CSS bursts can fire every tap. */
+  z.object({ replayClass: classTargetSchema }),
 ]);
 
 const textBlockSchema = z.object({
@@ -83,13 +87,33 @@ const hotspotBlockSchema = z.object({
   type: z.literal('hotspot'),
   layout: layoutBoxSchema.optional().default({}),
   onTap: z.array(tapActionSchema).optional().default([]),
+  /**
+   * When set, each tap still runs `onTap`. After this many taps, `onComplete`
+   * runs once.
+   */
+  requiredTaps: z.number().int().positive().optional(),
+  onComplete: z.array(tapActionSchema).optional().default([]),
   ariaLabel: z.string().optional(),
+});
+
+/** Host-registered minigame slot. Fancifully owns the rectangle; the host mounts the game. */
+const areaBlockSchema = z.object({
+  id: z.string(),
+  type: z.literal('area'),
+  layout: layoutBoxSchema.optional().default({}),
+  /** Registry id passed to {@link registerPageGame} / `StorybookOptions.pageGames`. */
+  game: z.string().min(1),
+  params: z.record(z.unknown()).optional(),
+  ariaLabel: z.string().optional(),
+  /** When true, reader nav stays locked until the game calls `onComplete`. */
+  requireComplete: z.boolean().optional().default(false),
 });
 
 export const blockSchema = z.discriminatedUnion('type', [
   textBlockSchema,
   imageBlockSchema,
   hotspotBlockSchema,
+  areaBlockSchema,
 ]);
 
 export const pageSchema = z.object({

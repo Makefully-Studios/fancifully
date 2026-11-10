@@ -215,10 +215,59 @@ Stories are JSON packages (not a single HTML document). Text may embed HTML; ima
 | `backCover` | If true, last page is a back cover (no blank to its right); can close centered at the end |
 | `hardback` | If true (with a cover flag), cover boards are larger than interior pages so open spreads show a cover rim |
 | `assets` | Map of image / audio / vtt / html |
-| `pages[].blocks` | `text`, `image`, `hotspot` with `layout` boxes |
+| `pages[].blocks` | `text`, `image`, `hotspot`, `area` with `layout` boxes |
 | `pages[].readAloud` | `{ audio, cues }` — cues are a VTT asset id or inline `{id,start,end}[]` |
 
 `pages` is always a flat list. Facing pages are a reader presentation, not a stored spread.
+
+### Hotspots
+
+`hotspot` blocks are invisible hit targets. Each tap runs `onTap` actions:
+
+| Action | Effect |
+|--------|--------|
+| `{ play: assetId }` | Play an audio asset on the SFX bus |
+| `{ toggleClass: { target, className } }` | Toggle a class on `[data-block-id=target]` |
+| `{ addClass: { target, className } }` | Add a class (one-way reveal) |
+| `{ removeClass: { target, className } }` | Remove a class |
+| `{ replayClass: { target, className } }` | Remove then re-add next frame (CSS bursts every tap) |
+
+Optional `requiredTaps` counts taps; after N taps, `onComplete` runs **once** (each tap still runs `onTap`).
+
+### Area blocks (host minigames)
+
+`area` marks a rectangle for a host-provided game. Fancifully mounts an empty `.fc-block-area` host; the host registers the game:
+
+```ts
+import { Storybook, registerPageGame } from '@makefully/fancifully';
+
+registerPageGame('my.toys-sort', (ctx) => {
+  // ctx.el is the mount host; call ctx.onComplete() when finished
+  ctx.el.textContent = 'Play here';
+  const done = document.createElement('button');
+  done.textContent = 'Done';
+  done.onclick = () => ctx.onComplete();
+  ctx.el.append(done);
+  return { destroy() { ctx.el.replaceChildren(); } };
+});
+
+await Storybook.create(el, {
+  story: './story.json',
+  pageGames: {
+    // optional per-instance override of the global registry
+    'my.toys-sort': (ctx) => ({ destroy() {} }),
+  },
+});
+```
+
+| Field | Purpose |
+|-------|---------|
+| `game` | Registry id (`registerPageGame` / `pageGames`) |
+| `params` | Opaque JSON for the host game |
+| `requireComplete` | When true, prev/next/swipe stay locked until `onComplete` |
+| `ariaLabel` | Accessibility label on the host |
+
+Listen for `areacomplete: { pageId, blockId, game }` for analytics. On page leave / `replaceStory` / destroy, each area’s `destroy()` runs and its `signal` aborts.
 
 ### Covers (`frontCover` / `backCover` / `hardback`)
 

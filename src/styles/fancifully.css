@@ -228,6 +228,12 @@
   background: rgba(196, 92, 38, 0.08);
 }
 
+.fc-block-area {
+  z-index: 4;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
 .fc-cue.is-active {
   background: var(--fc-cue-active-bg);
   border-radius: 0.15em;

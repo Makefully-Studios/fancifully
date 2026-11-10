@@ -15,7 +15,7 @@ import {
  */
 export type FabricLikeObject = {
   blockId?: string;
-  blockType?: 'text' | 'image' | string;
+  blockType?: 'text' | 'image' | 'hotspot' | 'area' | string;
   left?: number;
   top?: number;
   width?: number;
@@ -35,6 +35,11 @@ export type FabricLikeObject = {
   fit?: 'contain' | 'cover' | 'fill' | 'none';
   ariaLabel?: string;
   onTap?: TapAction[];
+  onComplete?: TapAction[];
+  requiredTaps?: number;
+  game?: string;
+  requireComplete?: boolean;
+  params?: Record<string, unknown>;
 };
 
 export type FabricLikePage = {
@@ -80,12 +85,28 @@ export type FabricLikeHotspotDescriptor = {
   height: number;
   ariaLabel?: string;
   onTap?: TapAction[];
+  onComplete?: TapAction[];
+  requiredTaps?: number;
+};
+
+export type FabricLikeAreaDescriptor = {
+  kind: 'area';
+  blockId: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  game: string;
+  ariaLabel?: string;
+  requireComplete?: boolean;
+  params?: Record<string, unknown>;
 };
 
 export type FabricLikeContentDescriptor =
   | FabricLikeTextDescriptor
   | FabricLikeImageDescriptor
-  | FabricLikeHotspotDescriptor;
+  | FabricLikeHotspotDescriptor
+  | FabricLikeAreaDescriptor;
 
 export type FabricLikeBackground = {
   color: string;
@@ -99,27 +120,33 @@ export type FabricLikePageDescriptors = {
   objects: FabricLikeContentDescriptor[];
 };
 
-type EditableBlock = Extract<StoryBlock, { type: 'text' | 'image' | 'hotspot' }>;
+type EditableBlock = Extract<StoryBlock, { type: 'text' | 'image' | 'hotspot' | 'area' }>;
 
 function isEditable(block: StoryBlock): block is EditableBlock {
-  return block.type === 'text' || block.type === 'image' || block.type === 'hotspot';
+  return (
+    block.type === 'text' ||
+    block.type === 'image' ||
+    block.type === 'hotspot' ||
+    block.type === 'area'
+  );
 }
 
 /**
  * Convert fabric-like objects (+ optional background color) into a StoryPage.
- * Hotspot blocks from `previousPage` are preserved.
+ * Hotspot/area blocks from `previousPage` are preserved unless sync flags say otherwise.
  */
 export function fabricLikeToPage(
   objects: FabricLikeObject[],
   previousPage: StoryPage,
   pageSize: PageSize,
   backgroundColor?: string,
-  options?: { syncHotspots?: boolean },
+  options?: { syncHotspots?: boolean; syncAreas?: boolean },
 ): StoryPage {
   const syncHotspots = options?.syncHotspots === true;
+  const syncAreas = options?.syncAreas === true;
   const byId = new Map<string, StoryBlock>();
   for (const block of previousPage.blocks) {
-    if (block.type !== 'hotspot') byId.set(block.id, { ...block });
+    if (block.type !== 'hotspot' && block.type !== 'area') byId.set(block.id, { ...block });
   }
 
   const nextEditable: StoryBlock[] = [];
@@ -190,7 +217,24 @@ export function fabricLikeToPage(
         type: 'hotspot',
         layout: serializeLayoutBox(left, top, width, height, prevHotspot?.layout, pageSize),
         onTap: obj.onTap ?? prevHotspot?.onTap ?? [],
+        onComplete: obj.onComplete ?? prevHotspot?.onComplete ?? [],
+        requiredTaps: obj.requiredTaps ?? prevHotspot?.requiredTaps,
         ariaLabel: obj.ariaLabel ?? prevHotspot?.ariaLabel,
+      });
+    } else if (blockType === 'area') {
+      const width = Math.round((obj.width ?? 0) * (obj.scaleX ?? 1));
+      const height = Math.round((obj.height ?? 0) * (obj.scaleY ?? 1));
+      const prevArea = prev && prev.type === 'area' ? prev : undefined;
+      const game = obj.game ?? prevArea?.game;
+      if (!game) continue;
+      nextEditable.push({
+        id: blockId,
+        type: 'area',
+        layout: serializeLayoutBox(left, top, width, height, prevArea?.layout, pageSize),
+        game,
+        params: obj.params ?? prevArea?.params,
+        ariaLabel: obj.ariaLabel ?? prevArea?.ariaLabel,
+        requireComplete: obj.requireComplete ?? prevArea?.requireComplete ?? false,
       });
     }
   }
@@ -198,6 +242,7 @@ export function fabricLikeToPage(
   for (const block of previousPage.blocks) {
     if (!isEditable(block)) continue;
     if (block.type === 'hotspot' && syncHotspots) continue;
+    if (block.type === 'area' && syncAreas) continue;
     if (!nextEditable.some((b) => b.id === block.id)) {
       nextEditable.push(block);
     }
@@ -288,6 +333,22 @@ export function pageToFabricLike(
         height: box.height,
         ariaLabel: block.ariaLabel,
         onTap: block.onTap,
+        onComplete: block.onComplete,
+        requiredTaps: block.requiredTaps,
+      });
+    } else if (block.type === 'area') {
+      const box = boxToPixels(block.layout, pageSize);
+      objects.push({
+        kind: 'area',
+        blockId: block.id,
+        left: box.x,
+        top: box.y,
+        width: box.width,
+        height: box.height,
+        game: block.game,
+        ariaLabel: block.ariaLabel,
+        requireComplete: block.requireComplete,
+        params: block.params,
       });
     }
   }
@@ -310,14 +371,14 @@ export type SpreadPagesResult = {
 };
 
 function objectWidth(obj: FabricLikeObject): number {
-  if (obj.blockType === 'image' || obj.blockType === 'hotspot') {
+  if (obj.blockType === 'image' || obj.blockType === 'hotspot' || obj.blockType === 'area') {
     return Math.round((obj.width ?? 0) * (obj.scaleX ?? 1));
   }
   return Math.round(obj.width ?? 0);
 }
 
 function objectHeight(obj: FabricLikeObject): number {
-  if (obj.blockType === 'image' || obj.blockType === 'hotspot') {
+  if (obj.blockType === 'image' || obj.blockType === 'hotspot' || obj.blockType === 'area') {
     return Math.round((obj.height ?? 0) * (obj.scaleY ?? 1));
   }
   return Math.round(obj.height ?? 0);
@@ -380,7 +441,7 @@ export function spreadFabricLikeToPages(
   rightPrev: StoryPage | null,
   pageSize: PageSize,
   backgroundColors?: { left?: string; right?: string },
-  options?: { syncHotspots?: boolean },
+  options?: { syncHotspots?: boolean; syncAreas?: boolean },
 ): SpreadPagesResult {
   const gutter = pageSize.width;
   const leftObjects: FabricLikeObject[] = [];

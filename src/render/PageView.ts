@@ -1,5 +1,6 @@
 import type { LoadedAssets } from '../load/loadStory.js';
 import type { StoryPage, TapAction } from '../schema/story.js';
+import { renderAreaBlock } from './blocks/AreaBlock.js';
 import { renderHotspotBlock } from './blocks/HotspotBlock.js';
 import { renderImageBlock } from './blocks/ImageBlock.js';
 import { renderTextBlock } from './blocks/TextBlock.js';
@@ -57,6 +58,8 @@ export class PageView {
         this.element.appendChild(
           renderHotspotBlock(block, (actions) => handlers.onTapActions(actions, this.element)),
         );
+      } else if (block.type === 'area') {
+        this.element.appendChild(renderAreaBlock(block));
       }
     }
   }

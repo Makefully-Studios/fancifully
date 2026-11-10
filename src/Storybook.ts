@@ -1,6 +1,13 @@
 import { AudioBus } from './audio/AudioBus.js';
 import { ReadAloudPlayer, type ReadAloudClip } from './audio/ReadAloudPlayer.js';
 import type { FlipStyleInput } from './flip/index.js';
+import {
+  getRegisteredPageGame,
+  isAreaNavGated,
+  type AreaBlock,
+  type PageGameFactory,
+  type PageGameHandle,
+} from './games/PageGame.js';
 import { bindSwipe } from './interaction/Pointer.js';
 import { findFanciFile, isFanciFile } from './load/fanciFile.js';
 import { loadStory, revokeLoadedStory, type LoadedAssets, type LoadedStory } from './load/loadStory.js';
@@ -58,6 +65,11 @@ export type StorybookOptions = {
   layoutMode?: LayoutMode;
   /** Stage width in px where `auto` switches to two-page. Default 900. */
   singleBreakpoint?: number;
+  /**
+   * Host page games keyed by `area.game` id. Overrides global
+   * {@link registerPageGame} registrations for this instance.
+   */
+  pageGames?: Record<string, PageGameFactory>;
 };
 
 export type EditableLeaf = {
@@ -70,6 +82,7 @@ export type EditableLeaf = {
 type StorybookEvents = PagerEvents & {
   ready: { story: Story };
   loading: LoadProgress;
+  areacomplete: { pageId: string; blockId: string; game: string };
 };
 
 type Listener<K extends keyof StorybookEvents> = (payload: StorybookEvents[K]) => void;
@@ -113,6 +126,17 @@ export class Storybook {
   private defaultFontFamily: string | null = null;
   /** When true, swipe/keyboard/chrome nav and read-aloud are locked (editor overlay). */
   private navLocked = false;
+  /** Instance page-game factories (override the global registry). */
+  private pageGames = new Map<string, PageGameFactory>();
+  private areaSessions: Array<{
+    blockId: string;
+    pageId: string;
+    game: string;
+    requireComplete: boolean;
+    complete: boolean;
+    abort: AbortController;
+    handle: PageGameHandle | null;
+  }> = [];
 
   private constructor(
     container: HTMLElement,
@@ -124,11 +148,17 @@ export class Storybook {
     flipSpeed?: number,
     layoutMode?: LayoutMode,
     singleBreakpoint?: number,
+    pageGames?: Record<string, PageGameFactory>,
   ) {
     this.root = container;
     this.loaded = loaded;
     this.springroll = springroll;
     this.chromeHiddenByOptions = Boolean(chromeOptions.hidden);
+    if (pageGames) {
+      for (const [id, factory] of Object.entries(pageGames)) {
+        this.pageGames.set(id, factory);
+      }
+    }
 
     this.element = document.createElement('div');
     this.element.className = 'fc-root';
@@ -218,15 +248,15 @@ export class Storybook {
     this.wireResize();
     this.unbindSwipe = bindSwipe(this.stage, {
       onSwipeLeft: () => {
-        if (!this.navLocked) void this.next();
+        if (!this.isReaderNavBlocked()) void this.next();
       },
       onSwipeRight: () => {
-        if (!this.navLocked) void this.prev();
+        if (!this.isReaderNavBlocked()) void this.prev();
       },
     });
 
     this.element.addEventListener('keydown', (event) => {
-      if (this.navLocked) return;
+      if (this.isReaderNavBlocked()) return;
       if (event.key === 'ArrowRight') {
         event.preventDefault();
         void this.next();
@@ -288,6 +318,7 @@ export class Storybook {
       options.flipSpeed,
       options.layoutMode,
       options.singleBreakpoint,
+      options.pageGames,
     );
 
     book.pager.updateLayout(
@@ -297,6 +328,7 @@ export class Storybook {
     );
     book.layoutStage();
     await book.pager.showInitial();
+    await book.syncPageGames();
     book.syncChromeNavState();
     book.emit('ready', { story: loaded.story });
     return book;
@@ -338,6 +370,15 @@ export class Storybook {
 
   get isNavLocked(): boolean {
     return this.navLocked;
+  }
+
+  /** True when editor lock or an incomplete `requireComplete` area blocks turning. */
+  private isReaderNavBlocked(): boolean {
+    return this.navLocked || this.hasIncompleteAreaGate();
+  }
+
+  private hasIncompleteAreaGate(): boolean {
+    return isAreaNavGated(this.areaSessions);
   }
 
   getDefaultFontFamily(): string | null {
@@ -408,6 +449,7 @@ export class Storybook {
   remountCurrent(): void {
     this.spreadView.remountCurrent();
     this.layoutStage();
+    void this.syncPageGames();
   }
 
   on<K extends keyof StorybookEvents>(event: K, fn: Listener<K>): () => void {
@@ -417,16 +459,17 @@ export class Storybook {
   }
 
   next(): Promise<void> {
-    if (this.navLocked) return Promise.resolve();
+    if (this.isReaderNavBlocked()) return Promise.resolve();
     return this.navigate(() => this.pager.next());
   }
 
   prev(): Promise<void> {
-    if (this.navLocked) return Promise.resolve();
+    if (this.isReaderNavBlocked()) return Promise.resolve();
     return this.navigate(() => this.pager.prev());
   }
 
   goTo(pageId: string): Promise<void> {
+    if (this.isReaderNavBlocked()) return Promise.resolve();
     return this.navigate(() => this.pager.goTo(pageId));
   }
 
@@ -489,6 +532,7 @@ export class Storybook {
     this.spreadView.setLoaded(loaded.story, loaded.assets);
     this.pager.replaceStory(loaded.story, loaded.story.pages[0]?.id ?? null);
     this.layoutStage();
+    await this.syncPageGames();
     this.syncChromeNavState();
     this.emit('ready', { story: loaded.story });
   }
@@ -612,6 +656,7 @@ export class Storybook {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.teardownPageGames();
     this.readAloud.destroy();
     this.bus.unregister(this.sfxAudio);
     this.bindings?.destroy();
@@ -636,8 +681,9 @@ export class Storybook {
   }
 
   private syncChromeNavState(): void {
-    const canPrev = this.pager.canPrev;
-    const canNext = this.pager.canNext;
+    const gated = this.hasIncompleteAreaGate();
+    const canPrev = this.pager.canPrev && !gated && !this.navLocked;
+    const canNext = this.pager.canNext && !gated && !this.navLocked;
     this.btnPrev.disabled = !canPrev;
     this.btnNext.disabled = !canNext;
     this.btnPrev.classList.toggle('is-disabled', !canPrev);
@@ -648,15 +694,19 @@ export class Storybook {
 
   private wirePager(autoPlay: boolean): void {
     this.pager.on('pagechange', (payload) => {
-      this.syncChromeNavState();
-      this.emit('pagechange', payload);
-      if (autoPlay && !this.navLocked) void this.playReadAloud();
+      void this.syncPageGames().then(() => {
+        this.syncChromeNavState();
+        this.emit('pagechange', payload);
+        if (autoPlay && !this.navLocked) void this.playReadAloud();
+      });
     });
     this.pager.on('layoutchange', (payload) => {
       this.readAloud.stop();
       this.layoutStage();
-      this.syncChromeNavState();
-      this.emit('layoutchange', payload);
+      void this.syncPageGames().then(() => {
+        this.syncChromeNavState();
+        this.emit('layoutchange', payload);
+      });
     });
   }
 
@@ -765,10 +815,131 @@ export class Storybook {
         this.bus.applyTo(this.sfxAudio, meta.channel);
         void this.sfxAudio.play().catch(() => undefined);
       } else if ('toggleClass' in action) {
-        const target = pageEl.querySelector(`[data-block-id="${action.toggleClass.target}"]`);
-        target?.classList.toggle(action.toggleClass.className);
+        this.applyClassAction(pageEl, action.toggleClass, 'toggle');
+      } else if ('addClass' in action) {
+        this.applyClassAction(pageEl, action.addClass, 'add');
+      } else if ('removeClass' in action) {
+        this.applyClassAction(pageEl, action.removeClass, 'remove');
+      } else if ('replayClass' in action) {
+        this.applyClassAction(pageEl, action.replayClass, 'replay');
       }
     }
+  }
+
+  private applyClassAction(
+    pageEl: HTMLElement,
+    spec: { target: string; className: string },
+    mode: 'toggle' | 'add' | 'remove' | 'replay',
+  ): void {
+    const target = pageEl.querySelector(`[data-block-id="${spec.target}"]`);
+    if (!target) return;
+    if (mode === 'toggle') {
+      target.classList.toggle(spec.className);
+      return;
+    }
+    if (mode === 'add') {
+      target.classList.add(spec.className);
+      return;
+    }
+    if (mode === 'remove') {
+      target.classList.remove(spec.className);
+      return;
+    }
+    target.classList.remove(spec.className);
+    requestAnimationFrame(() => {
+      target.classList.add(spec.className);
+    });
+  }
+
+  private resolvePageGame(id: string): PageGameFactory | undefined {
+    return this.pageGames.get(id) ?? getRegisteredPageGame(id);
+  }
+
+  private teardownPageGames(): void {
+    for (const session of this.areaSessions) {
+      session.abort.abort();
+      try {
+        session.handle?.destroy();
+      } catch {
+        /* host cleanup errors should not break navigation */
+      }
+    }
+    this.areaSessions = [];
+  }
+
+  /** Destroy prior area games and mount factories for visible area hosts. */
+  private async syncPageGames(): Promise<void> {
+    this.teardownPageGames();
+    if (this.destroyed) return;
+
+    const pages = this.loaded.story.pages;
+    const visibleIds = this.pager.currentPageIds;
+    for (const pageId of visibleIds) {
+      const page = pages.find((p) => p.id === pageId);
+      const pageEl = this.spreadView.getPageElement(pageId);
+      if (!page || !pageEl) continue;
+
+      for (const block of page.blocks) {
+        if (block.type !== 'area') continue;
+        const host = [...pageEl.querySelectorAll<HTMLElement>('.fc-block-area')].find(
+          (node) => node.dataset.blockId === block.id,
+        );
+        if (!host) continue;
+
+        const factory = this.resolvePageGame(block.game);
+        const abort = new AbortController();
+        const session = {
+          blockId: block.id,
+          pageId: page.id,
+          game: block.game,
+          requireComplete: Boolean(block.requireComplete),
+          complete: !block.requireComplete,
+          abort,
+          handle: null as PageGameHandle | null,
+        };
+        this.areaSessions.push(session);
+
+        if (!factory) {
+          host.replaceChildren();
+          const missing = document.createElement('p');
+          missing.className = 'fc-area-missing';
+          missing.textContent = `Missing page game: ${block.game}`;
+          host.append(missing);
+          continue;
+        }
+
+        const areaBlock = block as AreaBlock;
+        try {
+          const handle = await factory({
+            el: host,
+            page,
+            block: areaBlock,
+            story: this.loaded.story,
+            assets: this.loaded.assets,
+            signal: abort.signal,
+            onComplete: () => {
+              if (session.complete) return;
+              session.complete = true;
+              this.syncChromeNavState();
+              this.emit('areacomplete', {
+                pageId: session.pageId,
+                blockId: session.blockId,
+                game: session.game,
+              });
+            },
+          });
+          if (abort.signal.aborted) {
+            handle?.destroy();
+          } else if (handle) {
+            session.handle = handle;
+          }
+        } catch (error) {
+          console.error(`Page game "${block.game}" failed to mount`, error);
+        }
+      }
+    }
+
+    this.syncChromeNavState();
   }
 
   private emit<K extends keyof StorybookEvents>(event: K, payload: StorybookEvents[K]): void {

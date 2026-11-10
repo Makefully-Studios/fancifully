@@ -32,6 +32,7 @@ export {
   type FabricLikeTextDescriptor,
   type FabricLikeImageDescriptor,
   type FabricLikeHotspotDescriptor,
+  type FabricLikeAreaDescriptor,
   type FabricLikeContentDescriptor,
   type FabricLikeBackground,
   type PageToFabricLikeAssets,
@@ -62,6 +63,18 @@ export {
   type FlipStyleConstructor,
   type FlipStyleInput,
 } from './flip/index.js';
+export {
+  registerPageGame,
+  getRegisteredPageGame,
+  listRegisteredPageGames,
+  unregisterPageGame,
+  clearPageGameRegistry,
+  isAreaNavGated,
+  type AreaBlock,
+  type PageGameContext,
+  type PageGameFactory,
+  type PageGameHandle,
+} from './games/PageGame.js';
 export {
   loadStory,
   revokeLoadedStory,

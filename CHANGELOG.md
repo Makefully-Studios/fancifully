@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0]
+
+### Added
+
+- `area` story blocks for host-registered minigames (`registerPageGame`, `StorybookOptions.pageGames`)
+- Area lifecycle: mount/destroy on spread change, `areacomplete` event, `requireComplete` nav gate
+- Hotspot `requiredTaps` / `onComplete`, plus `addClass` / `removeClass` / `replayClass` tap actions
+- Fabric-like interop for area descriptors
+
 ## [0.3.1]
 
 ### Changed
