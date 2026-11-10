@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1]
+
+### Changed
+
+- Story `guides` keep only margin/gutter rails; show/snap toggles are editor prefs, not story fields
+
+### Fixed
+
+- Ignore `deploy/` build staging in git
+
 ## [0.3.0]
 
 ### Added

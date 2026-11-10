@@ -147,7 +147,10 @@ export const storySchema = z.object({
       height: z.number().positive(),
     })
     .optional(),
-  /** Editor alignment guides. The player ignores these. */
+  /**
+   * Editor alignment rails (margins / gutter). The player ignores these.
+   * Show/snap toggles are editor prefs, not story fields.
+   */
   guides: z
     .object({
       marginTop: z.number().nonnegative().default(48),
@@ -156,9 +159,6 @@ export const storySchema = z.object({
       marginLeft: z.number().nonnegative().default(48),
       /** Snap band around the gutter, in pixels. The split stays at page width. */
       gutterBand: z.number().nonnegative().default(8),
-      showGuides: z.boolean().default(true),
-      snapGuides: z.boolean().default(true),
-      snapObjects: z.boolean().default(true),
     })
     .optional(),
   fonts: z
