@@ -216,10 +216,7 @@ export class Storybook {
       iconOnly: true,
     });
 
-    const navPeapod = document.createElement('div');
-    navPeapod.className = 'fc-nav-peapod';
-    navPeapod.append(this.btnPrev, this.btnRead, this.btnNext);
-    this.chrome.append(navPeapod);
+    this.chrome.append(this.btnPrev, this.btnRead, this.btnNext);
 
     this.spreadView = new SpreadView(
       loaded.story,

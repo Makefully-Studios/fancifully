@@ -27,11 +27,10 @@
   width: 100%;
   height: 100%;
   min-height: 360px;
-  background:
-    radial-gradient(ellipse at 20% 0%, rgba(255, 255, 255, 0.45), transparent 50%),
-    linear-gradient(160deg, #f0e6d4 0%, var(--fc-bg) 45%, #d9cfc0 100%);
+  /* Neutral defaults — hosts theme via CSS variables / their own rules. */
+  background: var(--fc-bg);
   color: var(--fc-ink);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: inherit;
   outline: none;
   overflow: hidden;
 }

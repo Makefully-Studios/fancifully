@@ -94,7 +94,7 @@ When the resolved mode changes, spreads rebuild and the view jumps to the spread
 
 ## Chrome theming
 
-Built-in Prev / Read / Next live under `.fc-chrome`. Customize via CSS variables on `.fc-root` (or a host class) and optional `chrome` options:
+The package CSS is **structure-first**: layout for stage, spreads, chrome, and cues, plus neutral defaults. Decorative look-and-feel belongs in the host (or the editor). Built-in Prev / Read / Next live directly under `.fc-chrome` — no editor chrome wrappers. Customize via CSS variables on `.fc-root` (or a host class) and optional `chrome` options:
 
 ```ts
 await Storybook.create(el, {

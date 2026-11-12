@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1]
+
+### Changed
+
+- Chrome buttons mount directly under `.fc-chrome` (no `fc-nav-peapod` wrapper; peapod grouping stays in the editor)
+- Default package CSS is structure-first: solid `--fc-bg` and inherited font instead of a decorative gradient / Georgia stack
+
 ## [0.4.0]
 
 ### Added
