@@ -569,11 +569,23 @@ export class SpreadView {
     const leftPage = front ?? back;
     const rightPage = back ?? front;
 
+    // One-page layouts only expose a rim (or the full board mid-flip). Never
+    // paint cover artwork there — that leaked the back cover during single-right turns.
+    if (isSingleLayout(this.layoutMode)) {
+      this.mountHardbackBoard('left', leftPage, { solidOnly: true });
+      this.mountHardbackBoard('right', rightPage, { solidOnly: true });
+      return;
+    }
+
     this.mountHardbackBoard('left', leftPage);
     this.mountHardbackBoard('right', rightPage);
   }
 
-  private mountHardbackBoard(side: 'left' | 'right', page: Story['pages'][number] | null | undefined): void {
+  private mountHardbackBoard(
+    side: 'left' | 'right',
+    page: Story['pages'][number] | null | undefined,
+    options: { solidOnly?: boolean } = {},
+  ): void {
     const slot = side === 'left' ? this.hardbackLeft : this.hardbackRight;
     const prev = side === 'left' ? this.hardbackLeftPage : this.hardbackRightPage;
     prev?.destroy();
@@ -586,14 +598,26 @@ export class SpreadView {
       return;
     }
 
-    const innerColor = page.background?.innerColor;
-    if (innerColor) {
-      slot.style.background = innerColor;
+    const solid =
+      page.background?.innerColor ??
+      (options.solidOnly ? page.background?.color : undefined);
+    if (solid) {
+      slot.style.background = solid;
       slot.replaceChildren();
       if (side === 'left') this.hardbackLeftPage = null;
       else this.hardbackRightPage = null;
       return;
     }
+
+    if (options.solidOnly) {
+      // Fall back to the page-bg token so flips never reveal cover artwork.
+      slot.style.background = '';
+      slot.replaceChildren();
+      if (side === 'left') this.hardbackLeftPage = null;
+      else this.hardbackRightPage = null;
+      return;
+    }
+
     slot.style.background = '';
 
     const view = new PageView(page, this.assets, { onTapActions: () => {} });

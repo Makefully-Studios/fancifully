@@ -112,6 +112,11 @@
   height: 100%;
 }
 
+/* While a leaf peels, don't flash cover artwork on the board behind it. */
+.fc-spread-viewport:has(.fc-spread[class*='fc-turn-']) .fc-hardback-page {
+  visibility: hidden;
+}
+
 .fc-spread-viewport.fc-hardback-open .fc-spread {
   position: absolute;
   z-index: 1;

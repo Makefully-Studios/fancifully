@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1]
+
+### Fixed
+
+- One-page hardback boards use a solid inside-cover color instead of cover artwork, so fixed-side flips no longer flash the back cover
+
 ## [0.5.0]
 
 ### Added
