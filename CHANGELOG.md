@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.5]
+
+### Added
+
+- `StorybookOptions.readAloudCaptions` (default `true`) — set `false` to skip the bottom caption line during page read-aloud when cues already highlight in-page text (`.fc-captions` stays available for other VO/CC)
+
 ## [0.5.4]
 
 ### Added

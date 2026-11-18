@@ -47,6 +47,12 @@ export type StorybookOptions = {
   springroll?: SpringrollLike | null;
   features?: Record<string, boolean>;
   autoPlayReadAloud?: boolean;
+  /**
+   * Show the bottom caption line while page read-aloud plays.
+   * Default `true`. Set `false` when cues already highlight in-page text
+   * (the `.fc-captions` element remains for host VO / SpringRoll CC later).
+   */
+  readAloudCaptions?: boolean;
   /** Extra progress listener (SpringRoll Container also receives progress/loading). */
   onProgress?: (progress: LoadProgress) => void;
   /** Built-in Prev / Read / Next chrome labels and visibility. */
@@ -149,6 +155,7 @@ export class Storybook {
     layoutMode?: LayoutMode,
     singleBreakpoint?: number,
     pageGames?: Record<string, PageGameFactory>,
+    readAloudCaptions = true,
   ) {
     this.root = container;
     this.loaded = loaded;
@@ -266,10 +273,13 @@ export class Storybook {
       }
     });
 
-    this.readAloud.onCaption((text) => {
-      this.captionsEl.textContent = text ?? '';
-      this.captionsEl.hidden = !text;
-    });
+    this.captionsEl.hidden = true;
+    if (readAloudCaptions) {
+      this.readAloud.onCaption((text) => {
+        this.captionsEl.textContent = text ?? '';
+        this.captionsEl.hidden = !text;
+      });
+    }
   }
 
   static async create(container: HTMLElement, options: StorybookOptions): Promise<Storybook> {
@@ -316,6 +326,7 @@ export class Storybook {
       options.layoutMode,
       options.singleBreakpoint,
       options.pageGames,
+      options.readAloudCaptions ?? true,
     );
 
     book.pager.updateLayout(

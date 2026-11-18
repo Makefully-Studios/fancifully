@@ -280,7 +280,7 @@ Listen for `areacomplete: { pageId, blockId, game }` for analytics. On page leav
 
 ### VO ↔ text
 
-While read-aloud plays, Fancifully wraps matching cue payloads into `<span data-cue-id class="fc-cue">` under the page (word- or phrase-level VTT both work). Matching spans get `is-active` / `is-read`. You can still hand-author stable `id` / `data-cue-id` spans; existing targets are left alone. A separate captions line respects SpringRoll `captionsMuted`.
+While read-aloud plays, Fancifully wraps matching cue payloads into `<span data-cue-id class="fc-cue">` under the page (word- or phrase-level VTT both work). Matching spans get `is-active` / `is-read`. You can still hand-author stable `id` / `data-cue-id` spans; existing targets are left alone. The bottom `.fc-captions` line mirrors cue text by default (`readAloudCaptions: true`) and respects SpringRoll `captionsMuted`; set `readAloudCaptions: false` when in-page highlight is enough (the element remains for other host VO/CC).
 
 ## Scripts
 
