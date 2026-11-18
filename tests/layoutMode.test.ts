@@ -83,6 +83,35 @@ describe('layoutMode', () => {
     assert.equal(spreads[2].right.kind, 'page');
   });
 
+  it('builds single-right spreads with content always on the right', () => {
+    const pages = [{ id: 'cover' }, { id: 'b' }, { id: 'back' }];
+    const spreads = buildSpreads(pages, 'single-right', {
+      frontCover: true,
+      backCover: true,
+    });
+    assert.equal(spreads.length, 3);
+    for (const s of spreads) {
+      assert.equal(s.left.kind, 'blank');
+      assert.equal(s.right.kind, 'page');
+    }
+    if (spreads[0].right.kind === 'page') assert.equal(spreads[0].right.pageId, 'cover');
+  });
+
+  it('builds single-left spreads with content always on the left', () => {
+    const pages = [{ id: 'a' }, { id: 'b' }];
+    const spreads = buildSpreads(pages, 'single-left');
+    assert.equal(spreads.length, 2);
+    for (const s of spreads) {
+      assert.equal(s.left.kind, 'page');
+      assert.equal(s.right.kind, 'blank');
+    }
+  });
+
+  it('passes through single-right and single-left from resolveLayoutMode', () => {
+    assert.equal(resolveLayoutMode('single-right', 400, 800, 900), 'single-right');
+    assert.equal(resolveLayoutMode('single-left', 1200, 400, 900), 'single-left');
+  });
+
   it('remaps the same page id across single and two-page spread lists', () => {
     const pages = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }];
     const two = buildSpreads(pages, 'two-page');

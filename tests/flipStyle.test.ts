@@ -4,6 +4,7 @@ import {
   DefaultFlipStyle,
   FlipStyle,
   createFlipStyle,
+  flipTurnClass,
   listRegisteredFlipStyles,
   registerFlipStyle,
   resolveFlipSpeedMs,
@@ -52,5 +53,14 @@ describe('FlipStyle', () => {
     assert.equal(resolveFlipSpeedMs(250), 250);
     assert.equal(resolveFlipSpeedMs(0), 400);
     assert.equal(resolveFlipSpeedMs(-1), 400);
+  });
+
+  it('picks classic vs fixed-side turn classes from contentSide', () => {
+    assert.equal(flipTurnClass('next', 'both'), 'fc-turn-next');
+    assert.equal(flipTurnClass('prev', 'both'), 'fc-turn-prev');
+    assert.equal(flipTurnClass('next', 'right'), 'fc-turn-next-right');
+    assert.equal(flipTurnClass('prev', 'right'), 'fc-turn-prev-right');
+    assert.equal(flipTurnClass('next', 'left'), 'fc-turn-next-left');
+    assert.equal(flipTurnClass('prev', 'left'), 'fc-turn-prev-left');
   });
 });

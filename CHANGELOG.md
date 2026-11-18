@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0]
+
+### Added
+
+- Reader layouts `single-right` and `single-left`: one page per turn fixed on that side with a blank mate offscreen
+- Default flip peels the content leaf for both next and prev in fixed-side modes (`FlipContext.contentSide`)
+
+### Changed
+
+- Classic `single` remains alternate left/right; `responsive` / `auto` still resolve to classic `single` or `two-page`
+
 ## [0.4.1]
 
 ### Changed

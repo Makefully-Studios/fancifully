@@ -7,6 +7,7 @@ import {
   DEFAULT_SINGLE_BREAKPOINT,
   findSpreadIndexForPage,
   primaryPageId,
+  isSingleLayout,
   resolveLayoutMode,
   type BookState,
   type CoverOptions,
@@ -160,8 +161,8 @@ export class Pager {
       (this.covers.backCover &&
         anchorId === this.story.pages[this.story.pages.length - 1]?.id);
 
-    if (next === 'single') {
-      // Single mode: covers are normal pages in the one-page list.
+    if (isSingleLayout(next)) {
+      // One-page modes: covers are normal pages in the one-page list.
       this.bookState = 'open';
       this.spreadIndex = anchorId
         ? findSpreadIndexForPage(this.spreads, anchorId)
@@ -326,7 +327,7 @@ export class Pager {
       this.story.pages[0]?.id ??
       null;
 
-    if (this.resolvedMode === 'single') {
+    if (isSingleLayout(this.resolvedMode)) {
       this.bookState = 'open';
       this.spreadIndex = anchorId
         ? findSpreadIndexForPage(this.spreads, anchorId)

@@ -1,19 +1,45 @@
 /** How a reader presents pages. Not stored on the story. */
-export type LayoutMode = 'single' | 'two-page' | 'responsive' | 'auto';
+export type LayoutMode =
+  | 'single'
+  | 'single-right'
+  | 'single-left'
+  | 'two-page'
+  | 'responsive'
+  | 'auto';
 /** Concrete presentation after resolving `responsive` / `auto`. */
-export type ResolvedLayoutMode = 'single' | 'two-page';
+export type ResolvedLayoutMode =
+  | 'single'
+  | 'single-right'
+  | 'single-left'
+  | 'two-page';
+
+/** Which side holds content in a one-page presentation. */
+export type SinglePageSide = 'alternate' | 'right' | 'left';
 
 /** Reader default when the host does not pass a layout mode. */
 export const DEFAULT_LAYOUT_MODE: LayoutMode = 'auto';
 /** Width where `auto` switches to two-page, in CSS pixels. */
 export const DEFAULT_SINGLE_BREAKPOINT = 900;
 
+/** True for any one-page presentation (alternate or fixed-side). */
+export function isSingleLayout(mode: ResolvedLayoutMode): boolean {
+  return mode === 'single' || mode === 'single-right' || mode === 'single-left';
+}
+
+/** Map a resolved one-page mode to its side policy. */
+export function singlePageSide(mode: ResolvedLayoutMode): SinglePageSide | null {
+  if (mode === 'single') return 'alternate';
+  if (mode === 'single-right') return 'right';
+  if (mode === 'single-left') return 'left';
+  return null;
+}
+
 /**
- * Resolve a reader layout mode to a concrete single / two-page presentation.
+ * Resolve a reader layout mode to a concrete presentation.
  *
- * - `single` / `two-page`: fixed
- * - `responsive`: landscape (width ≥ height) → two-page; portrait → single
- * - `auto`: width ≥ singleBreakpoint → two-page
+ * - `single` / `single-right` / `single-left` / `two-page`: fixed
+ * - `responsive`: landscape (width ≥ height) → two-page; portrait → classic single
+ * - `auto`: width ≥ singleBreakpoint → two-page; else classic single
  */
 export function resolveLayoutMode(
   mode: LayoutMode,
@@ -99,7 +125,7 @@ export function buildTwoPageSpreads(
     spreads.push({
       index: 0,
       left: BLANK,
-      right: pageLeaf(pages, 0),
+      right: pageLeaf(pages, i),
     });
     i = 1;
   }
@@ -129,19 +155,40 @@ export function buildTwoPageSpreads(
 
 /**
  * One-page spreads: every story page (including covers) is its own spread.
- * Front cover on the left; back cover on the right; others alternate.
+ *
+ * - `alternate` (classic `single`): front cover on the left; back cover on the
+ *   right; others alternate verso/recto.
+ * - `right` (`single-right`): content always on the right; blank left.
+ * - `left` (`single-left`): content always on the left; blank right.
  */
 export function buildSingleSpreads(
   pages: { id: string }[],
   covers: CoverOptions = {},
+  side: SinglePageSide = 'alternate',
 ): Spread[] {
   if (pages.length === 0) return [];
+
+  if (side === 'right') {
+    return pages.map((_, i) => ({
+      index: i,
+      left: BLANK,
+      right: pageLeaf(pages, i),
+    }));
+  }
+
+  if (side === 'left') {
+    return pages.map((_, i) => ({
+      index: i,
+      left: pageLeaf(pages, i),
+      right: BLANK,
+    }));
+  }
 
   const frontCover = Boolean(covers.frontCover);
   const backCover = Boolean(covers.backCover);
   const last = pages.length - 1;
 
-  return pages.map((page, i) => {
+  return pages.map((_, i) => {
     const leaf = pageLeaf(pages, i);
     if (frontCover && i === 0) {
       return { index: i, left: leaf, right: BLANK };
@@ -161,9 +208,11 @@ export function buildSpreads(
   mode: ResolvedLayoutMode = 'two-page',
   covers: CoverOptions = {},
 ): Spread[] {
-  return mode === 'single'
-    ? buildSingleSpreads(pages, covers)
-    : buildTwoPageSpreads(pages, covers);
+  const side = singlePageSide(mode);
+  if (side) {
+    return buildSingleSpreads(pages, covers, side);
+  }
+  return buildTwoPageSpreads(pages, covers);
 }
 
 export function contentPageIds(spread: Spread): string[] {

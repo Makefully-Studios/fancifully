@@ -768,7 +768,7 @@ export class Storybook {
       leaves = [spread.left];
     } else if (bookState === 'closed-back') {
       leaves = [spread.right];
-    } else if (mode === 'single') {
+    } else if (mode !== 'two-page') {
       leaves =
         spread.left.kind === 'blank'
           ? [spread.right]

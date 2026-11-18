@@ -52,12 +52,14 @@ export {
 export {
   FlipStyle,
   DefaultFlipStyle,
+  flipTurnClass,
   createFlipStyle,
   registerFlipStyle,
   getRegisteredFlipStyle,
   listRegisteredFlipStyles,
   resolveFlipSpeedMs,
   DEFAULT_FLIP_SPEED_MS,
+  type FlipContentSide,
   type FlipContext,
   type FlipDirection,
   type FlipStyleConstructor,
@@ -96,6 +98,8 @@ export {
   buildFrontCoverSpread,
   buildBackCoverSpread,
   resolveLayoutMode,
+  isSingleLayout,
+  singlePageSide,
   contentPageIds,
   primaryPageId,
   findSpreadIndexForPage,
@@ -105,6 +109,7 @@ export {
   type BookState,
   type LayoutMode,
   type ResolvedLayoutMode,
+  type SinglePageSide,
 } from './nav/layoutMode.js';
 export {
   HARDBACK_EDGE_RATIO,

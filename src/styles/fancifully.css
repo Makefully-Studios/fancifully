@@ -392,6 +392,27 @@
   transform-origin: right center;
 }
 
+/* Fixed-side single: both directions peel the content leaf */
+.fc-spread.fc-turn-next-right .fc-leaf-right {
+  animation: fc-flip-next var(--fc-flip-duration) ease forwards;
+  transform-origin: left center;
+}
+
+.fc-spread.fc-turn-prev-right .fc-leaf-right {
+  animation: fc-flip-prev-fixed-right var(--fc-flip-duration) ease forwards;
+  transform-origin: left center;
+}
+
+.fc-spread.fc-turn-next-left .fc-leaf-left {
+  animation: fc-flip-next-fixed-left var(--fc-flip-duration) ease forwards;
+  transform-origin: right center;
+}
+
+.fc-spread.fc-turn-prev-left .fc-leaf-left {
+  animation: fc-flip-prev var(--fc-flip-duration) ease forwards;
+  transform-origin: right center;
+}
+
 @keyframes fc-flip-next {
   from {
     transform: perspective(1200px) rotateY(0deg);
@@ -407,6 +428,24 @@
   }
   to {
     transform: perspective(1200px) rotateY(90deg);
+  }
+}
+
+@keyframes fc-flip-prev-fixed-right {
+  from {
+    transform: perspective(1200px) rotateY(0deg);
+  }
+  to {
+    transform: perspective(1200px) rotateY(90deg);
+  }
+}
+
+@keyframes fc-flip-next-fixed-left {
+  from {
+    transform: perspective(1200px) rotateY(0deg);
+  }
+  to {
+    transform: perspective(1200px) rotateY(-90deg);
   }
 }
 

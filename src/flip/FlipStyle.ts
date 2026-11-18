@@ -1,5 +1,12 @@
 export type FlipDirection = 'next' | 'prev';
 
+/**
+ * Which leaf(s) hold content for this turn.
+ * - `both`: classic book — next turns right, prev turns left
+ * - `right` / `left`: fixed-side single — both directions peel that leaf
+ */
+export type FlipContentSide = 'left' | 'right' | 'both';
+
 /** Context passed to a flip style while animating a turn. */
 export type FlipContext = {
   bookEl: HTMLElement;
@@ -9,6 +16,8 @@ export type FlipContext = {
   direction: FlipDirection;
   /** Duration in milliseconds */
   durationMs: number;
+  /** Defaults to `both` when omitted (two-page / alternate single). */
+  contentSide?: FlipContentSide;
 };
 
 /**

@@ -1,12 +1,20 @@
 import {
   createFlipStyle,
   resolveFlipSpeedMs,
+  type FlipContentSide,
   type FlipStyle,
   type FlipStyleInput,
 } from '../flip/index.js';
 import type { LoadedAssets } from '../load/loadStory.js';
 import { hardbackEnabled, hardbackOverhang } from '../nav/hardback.js';
-import type { BookState, ResolvedLayoutMode, Spread, SpreadLeaf } from '../nav/layoutMode.js';
+import {
+  isSingleLayout,
+  singlePageSide,
+  type BookState,
+  type ResolvedLayoutMode,
+  type Spread,
+  type SpreadLeaf,
+} from '../nav/layoutMode.js';
 import type { Story, TapAction } from '../schema/story.js';
 import { PageView } from './PageView.js';
 
@@ -108,7 +116,7 @@ export class SpreadView {
   setLayoutMode(mode: ResolvedLayoutMode): void {
     this.layoutMode = mode;
     this.element.dataset.layoutMode = mode;
-    this.element.classList.toggle('fc-spread-viewport-single', mode === 'single');
+    this.element.classList.toggle('fc-spread-viewport-single', isSingleLayout(mode));
     this.element.classList.toggle('fc-spread-viewport-two', mode === 'two-page');
   }
 
@@ -138,6 +146,7 @@ export class SpreadView {
     }
 
     this.turning = true;
+    const contentSide = this.flipContentSide();
 
     return this.flipStyle
       .play({
@@ -147,6 +156,7 @@ export class SpreadView {
         rightLeaf: this.rightSlot,
         direction: animate,
         durationMs: this.flipSpeedMs,
+        contentSide,
       })
       .then(() => {
         this.mountSpread(spread);
@@ -156,6 +166,13 @@ export class SpreadView {
         this.mountSpread(spread);
         this.turning = false;
       });
+  }
+
+  /** Which leaf peels for the default flip in the current layout. */
+  private flipContentSide(): FlipContentSide {
+    const side = singlePageSide(this.layoutMode);
+    if (side === 'right' || side === 'left') return side;
+    return 'both';
   }
 
   getPageElement(pageId: string): HTMLElement | null {
@@ -339,7 +356,7 @@ export class SpreadView {
       spreadTop = 0;
       this.hardbackEl.hidden = true;
     } else if (openHardback) {
-      const contentW = mode === 'single' ? pageW : pageW * 2;
+      const contentW = isSingleLayout(mode) ? pageW : pageW * 2;
       caseW = contentW + 2 * oh.x;
       caseH = pageH + 2 * oh.y;
       scale = this.sizedScale(
@@ -358,14 +375,17 @@ export class SpreadView {
       this.hardbackEl.hidden = false;
       this.hardbackEl.style.width = `${caseW}px`;
       this.hardbackEl.style.height = `${caseH}px`;
-      const visibleSide =
-        mode === 'single' ? (spread?.left.kind === 'blank' ? 'right' : 'left') : 'both';
+      const visibleSide = isSingleLayout(mode)
+        ? spread?.left.kind === 'blank'
+          ? 'right'
+          : 'left'
+        : 'both';
       this.sizeHardbackBoards(visibleSide, pageW, pageH, oh.x, oh.y);
 
       spreadLeft = oh.x;
       spreadTop = oh.y;
 
-      if (mode === 'single' && spread?.left.kind === 'blank') {
+      if (isSingleLayout(mode) && spread?.left.kind === 'blank') {
         offsetX = -pageW * scale;
       } else {
         offsetX = 0;
@@ -373,7 +393,7 @@ export class SpreadView {
     } else {
       caseW = pageW * 2;
       caseH = pageH;
-      if (mode === 'single' || closed) {
+      if (isSingleLayout(mode) || closed) {
         scale = this.sizedScale(
           Math.min(containerWidth / pageW, containerHeight / pageH),
           pageW,
@@ -400,7 +420,7 @@ export class SpreadView {
         offsetX = 0;
       } else if (closed) {
         offsetX = -pageW * scale;
-      } else if (mode === 'single' && spread) {
+      } else if (isSingleLayout(mode) && spread) {
         if (spread.left.kind === 'blank') {
           offsetX = -pageW * scale;
         }
@@ -420,8 +440,8 @@ export class SpreadView {
       useHardback && closed
         ? (pageW + 2 * oh.x) * scale
         : openHardback
-          ? (mode === 'single' ? pageW + 2 * oh.x : pageW * 2 + 2 * oh.x) * scale
-          : mode === 'single' || closed
+          ? (isSingleLayout(mode) ? pageW + 2 * oh.x : pageW * 2 + 2 * oh.x) * scale
+          : isSingleLayout(mode) || closed
             ? pageW * scale
             : pageW * 2 * scale;
     let viewH =
@@ -439,7 +459,7 @@ export class SpreadView {
         shiftY = (viewH - containerHeight) / 2;
         viewH = containerHeight;
       }
-      const pagesW = (mode === 'single' || closed || soloCover ? pageW : pageW * 2) * scale;
+      const pagesW = (isSingleLayout(mode) || closed || soloCover ? pageW : pageW * 2) * scale;
       if (pagesW <= containerWidth && viewW > containerWidth) {
         shiftX = (viewW - containerWidth) / 2;
         viewW = containerWidth;
