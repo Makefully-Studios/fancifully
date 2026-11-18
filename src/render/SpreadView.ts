@@ -39,9 +39,12 @@ export class SpreadView {
   private hardbackRightPage: PageView | null = null;
   private leftSlot: HTMLElement;
   private rightSlot: HTMLElement;
-  /** Incoming page staged under the peeling leaf for fixed-side flips. */
+  /** Incoming page under the peeling leaf (fixed-side next). */
   private underlayEl: HTMLElement;
   private underlayPage: PageView | null = null;
+  /** Incoming page over the current leaf (fixed-side prev). */
+  private overlayEl: HTMLElement;
+  private overlayPage: PageView | null = null;
   private leftPage: PageView | null = null;
   private rightPage: PageView | null = null;
   private story: Story;
@@ -94,7 +97,12 @@ export class SpreadView {
     this.underlayEl.hidden = true;
     this.underlayEl.setAttribute('aria-hidden', 'true');
 
-    this.bookEl.append(this.underlayEl, this.leftSlot, this.rightSlot);
+    this.overlayEl = document.createElement('div');
+    this.overlayEl.className = 'fc-leaf-overlay';
+    this.overlayEl.hidden = true;
+    this.overlayEl.setAttribute('aria-hidden', 'true');
+
+    this.bookEl.append(this.underlayEl, this.leftSlot, this.rightSlot, this.overlayEl);
     this.element.append(this.hardbackEl, this.bookEl);
   }
 
@@ -156,7 +164,8 @@ export class SpreadView {
     this.turning = true;
     const contentSide = this.flipContentSide();
     if (contentSide === 'left' || contentSide === 'right') {
-      this.stageFixedSideUnderlay(spread, contentSide);
+      // next: peel current away over the destination; prev: slide destination in over current
+      this.stageFixedSideIncoming(spread, contentSide, animate === 'prev' ? 'overlay' : 'underlay');
     }
 
     return this.flipStyle
@@ -165,6 +174,7 @@ export class SpreadView {
         viewportEl: this.element,
         leftLeaf: this.leftSlot,
         rightLeaf: this.rightSlot,
+        overlayLeaf: this.overlayEl,
         direction: animate,
         durationMs: this.flipSpeedMs,
         contentSide,
@@ -180,27 +190,48 @@ export class SpreadView {
   }
 
   /**
-   * Put the destination page under the content leaf so a fixed-side peel
-   * reveals the next/prev page instead of hardback/cover boards.
+   * Stage the destination page for a fixed-side turn.
+   * - underlay: beneath the content leaf (next — current peels away)
+   * - overlay: above the content leaf (prev — incoming swings in on top)
    */
-  private stageFixedSideUnderlay(spread: Spread, side: 'left' | 'right'): void {
-    this.clearUnderlay();
+  private stageFixedSideIncoming(
+    spread: Spread,
+    side: 'left' | 'right',
+    layer: 'underlay' | 'overlay',
+  ): void {
+    this.clearIncomingLayers();
     const leaf = side === 'right' ? spread.right : spread.left;
     if (leaf.kind !== 'page') return;
 
-    this.underlayPage = this.createLeaf(leaf);
-    this.underlayEl.replaceChildren(this.underlayPage.element);
-    this.underlayEl.classList.toggle('fc-leaf-underlay-left', side === 'left');
-    this.underlayEl.classList.toggle('fc-leaf-underlay-right', side === 'right');
-    this.underlayEl.hidden = false;
+    const view = this.createLeaf(leaf);
+    if (layer === 'underlay') {
+      this.underlayPage = view;
+      this.underlayEl.replaceChildren(view.element);
+      this.underlayEl.classList.toggle('fc-leaf-underlay-left', side === 'left');
+      this.underlayEl.classList.toggle('fc-leaf-underlay-right', side === 'right');
+      this.underlayEl.hidden = false;
+      return;
+    }
+
+    this.overlayPage = view;
+    this.overlayEl.replaceChildren(view.element);
+    this.overlayEl.classList.toggle('fc-leaf-overlay-left', side === 'left');
+    this.overlayEl.classList.toggle('fc-leaf-overlay-right', side === 'right');
+    this.overlayEl.hidden = false;
   }
 
-  private clearUnderlay(): void {
+  private clearIncomingLayers(): void {
     this.underlayPage?.destroy();
     this.underlayPage = null;
     this.underlayEl.replaceChildren();
     this.underlayEl.hidden = true;
     this.underlayEl.classList.remove('fc-leaf-underlay-left', 'fc-leaf-underlay-right');
+
+    this.overlayPage?.destroy();
+    this.overlayPage = null;
+    this.overlayEl.replaceChildren();
+    this.overlayEl.hidden = true;
+    this.overlayEl.classList.remove('fc-leaf-overlay-left', 'fc-leaf-overlay-right');
   }
 
   /** Which leaf peels for the default flip in the current layout. */
@@ -335,7 +366,7 @@ export class SpreadView {
       rightLeaf: this.rightSlot,
     });
     this.clearHardbackBoards();
-    this.clearUnderlay();
+    this.clearIncomingLayers();
     this.leftPage?.destroy();
     this.rightPage?.destroy();
     this.element.remove();
@@ -536,6 +567,9 @@ export class SpreadView {
 
   /** A front or back cover shown by itself, not as one half of an open spread. */
   private isSoloCover(): boolean {
+    // One-page stacks treat covers as normal pages; solo-cover collapse offsets
+    // fight fixed-side geometry (content leaf jumps offscreen when the blank mate is removed).
+    if (isSingleLayout(this.layoutMode)) return false;
     if (this.bookState === 'closed-front' || this.bookState === 'closed-back') return true;
     const spread = this.currentSpread;
     if (!spread) return false;
@@ -676,7 +710,7 @@ export class SpreadView {
 
   private mountSpread(spread: Spread): void {
     this.currentSpread = spread;
-    this.clearUnderlay();
+    this.clearIncomingLayers();
     this.leftPage?.destroy();
     this.rightPage?.destroy();
     this.leftSlot.replaceChildren();

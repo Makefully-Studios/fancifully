@@ -87,8 +87,8 @@ Single page vs facing spread is a **host setting**, like flip style. Stories sto
 
 - **`two-page`**: facing pairs. With a front cover, open spreads start after the cover.
 - **`single`**: one story page per turn; content alternates left/right with a blank mate offscreen (classic verso/recto).
-- **`single-right`**: one page per turn, always on the right; blank left offscreen. Both next and prev peel the right leaf.
-- **`single-left`**: one page per turn, always on the left; blank right offscreen. Both next and prev peel the left leaf.
+- **`single-right`**: one page per turn, always on the right; blank left offscreen. Next peels the right leaf; prev swings the incoming page in over it.
+- **`single-left`**: one page per turn, always on the left; blank right offscreen. Next peels the left leaf; prev swings the incoming page in over it.
 - **`responsive`**: landscape (width ≥ height) → two-page; portrait → classic `single`.
 - **`auto`**: two-page when the stage is at least `singleBreakpoint` wide; else classic `single`.
 

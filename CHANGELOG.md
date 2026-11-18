@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.3]
+
+### Fixed
+
+- One-page layouts no longer use solo-cover collapse (first/last pages were offset offscreen with hardback)
+- Fixed-side prev swings the incoming page in over the current page instead of peeling the current page away
+
 ## [0.5.2]
 
 ### Fixed

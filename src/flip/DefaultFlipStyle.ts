@@ -59,8 +59,13 @@ export class DefaultFlipStyle extends FlipStyle {
         resolve();
       };
       const onEnd = (event: AnimationEvent) => {
-        // Only finish on the leaf animation, not nested ones.
-        if (event.target !== ctx.rightLeaf && event.target !== ctx.leftLeaf) {
+        // Only finish on the animated leaf / overlay, not nested ones.
+        const target = event.target;
+        if (
+          target !== ctx.rightLeaf &&
+          target !== ctx.leftLeaf &&
+          target !== ctx.overlayLeaf
+        ) {
           return;
         }
         done();

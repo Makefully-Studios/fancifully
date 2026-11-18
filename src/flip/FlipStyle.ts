@@ -3,7 +3,7 @@ export type FlipDirection = 'next' | 'prev';
 /**
  * Which leaf(s) hold content for this turn.
  * - `both`: classic book — next turns right, prev turns left
- * - `right` / `left`: fixed-side single — both directions peel that leaf
+ * - `right` / `left`: fixed-side single — next peels that leaf; prev swings overlay in
  */
 export type FlipContentSide = 'left' | 'right' | 'both';
 
@@ -13,6 +13,8 @@ export type FlipContext = {
   viewportEl: HTMLElement;
   leftLeaf: HTMLElement;
   rightLeaf: HTMLElement;
+  /** Incoming overlay leaf for fixed-side prev turns. */
+  overlayLeaf?: HTMLElement | null;
   direction: FlipDirection;
   /** Duration in milliseconds */
   durationMs: number;
