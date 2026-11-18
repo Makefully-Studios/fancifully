@@ -280,14 +280,18 @@
   pointer-events: auto;
 }
 
+.fc-cue {
+  display: inline;
+  border-radius: 0.15em;
+  transition: background-color 80ms ease;
+}
+
 .fc-cue.is-active {
   background: var(--fc-cue-active-bg);
-  border-radius: 0.15em;
 }
 
 .fc-cue.is-read:not(.is-active) {
   background: var(--fc-cue-read-bg);
-  border-radius: 0.15em;
 }
 
 .fc-captions {

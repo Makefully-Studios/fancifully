@@ -91,6 +91,7 @@ export { loadFanciFromBytes, loadFanciFromZip, findStoryJsonPath } from './load/
 export { loadEpubFromBytes, loadEpubFromZip } from './load/loadEpub.js';
 export { parseVtt } from './sync/parseVtt.js';
 export { CueTimeline } from './sync/CueTimeline.js';
+export { applyCueSpans } from './sync/applyCueSpans.js';
 export {
   buildSpreads,
   buildSingleSpreads,

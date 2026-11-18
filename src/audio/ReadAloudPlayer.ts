@@ -1,4 +1,5 @@
 import type { Cue } from '../schema/story.js';
+import { applyCueSpans } from '../sync/applyCueSpans.js';
 import { CueTimeline } from '../sync/CueTimeline.js';
 import type { AudioBus } from './AudioBus.js';
 
@@ -84,6 +85,9 @@ export class ReadAloudPlayer {
     }
 
     this.timeline.setCues(next.cues);
+    if (next.root) {
+      applyCueSpans(next.root, next.cues);
+    }
     this.timeline.attach(next.root);
     this.bus.register(this.audio, next.channel);
     this.audio.src = next.url;

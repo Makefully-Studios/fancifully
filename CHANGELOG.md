@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.4]
+
+### Added
+
+- `applyCueSpans`: while read-aloud plays, VTT cue `text` (word or phrase) is wrapped into `[data-cue-id]` spans so in-page highlight works without hand-authored markup
+
+### Changed
+
+- Text blocks also treat `[data-cue-id]` as cue targets (alongside `[id]`)
+
 ## [0.5.3]
 
 ### Fixed

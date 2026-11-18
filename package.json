@@ -1,6 +1,6 @@
 {
   "name": "@makefully/fancifully",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "DOM-based interactive storybook engine with SpringRoll audio and VO↔text sync.",
   "type": "module",
   "main": "./dist/fancifully.js",
@@ -68,6 +68,7 @@
   },
   "devDependencies": {
     "@iconify-json/mdi": "^1.2.3",
+    "happy-dom": "^21.0.4",
     "springroll": "^2.6.0",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",

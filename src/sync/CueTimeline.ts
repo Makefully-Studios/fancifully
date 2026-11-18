@@ -50,14 +50,13 @@ export class CueTimeline {
   private applyHighlight(id: string): void {
     if (!this.root) return;
     this.root.querySelectorAll('.fc-cue.is-active').forEach((el) => el.classList.remove('is-active'));
-    const target = this.root.querySelector(`#${cssEscape(id)}, [data-cue-id="${cssEscapeAttr(id)}"]`);
+    const target = findCueTarget(this.root, id);
     if (target) {
       target.classList.add('fc-cue', 'is-active', 'is-read');
     }
     for (const readId of this.readIds) {
       if (readId === id) continue;
-      const el = this.root.querySelector(`#${cssEscape(readId)}, [data-cue-id="${cssEscapeAttr(readId)}"]`);
-      el?.classList.add('fc-cue', 'is-read');
+      findCueTarget(this.root, readId)?.classList.add('fc-cue', 'is-read');
     }
   }
 
@@ -70,6 +69,16 @@ export class CueTimeline {
       el.classList.remove('is-active', 'is-read');
     });
   }
+}
+
+function findCueTarget(root: ParentNode, id: string): Element | null {
+  const el = root as Element;
+  if (typeof el.querySelector !== 'function') return null;
+  const attr = cssEscapeAttr(id);
+  const byAttr = el.querySelector(`[data-cue-id="${attr}"]`);
+  if (byAttr) return byAttr;
+  if (!/^[A-Za-z_][\w-]*$/.test(id)) return null;
+  return el.querySelector(`#${cssEscape(id)}`);
 }
 
 function cssEscape(value: string): string {

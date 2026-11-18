@@ -11,8 +11,8 @@ export function renderTextBlock(
   applyLayout(el, block.layout);
   el.innerHTML = htmlContent;
 
-  // Mark cue spans
-  el.querySelectorAll('[id]').forEach((node) => {
+  // Mark author-supplied cue spans (id and/or data-cue-id).
+  el.querySelectorAll('[id], [data-cue-id]').forEach((node) => {
     node.classList.add('fc-cue');
   });
 
