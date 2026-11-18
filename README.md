@@ -213,6 +213,7 @@ Stories are JSON packages (not a single HTML document). Text may embed HTML; ima
 | Field | Purpose |
 |-------|---------|
 | `pageSize` | Authoring pixel size per leaf |
+| `cueHighlightColor` | CSS color for in-page VO cue highlight (host option can override) |
 | `frontCover` | If true, first page is a closed cover (centered); opens with a tween; no blank to its left |
 | `backCover` | If true, last page is a back cover (no blank to its right); can close centered at the end |
 | `hardback` | If true (with a cover flag), cover boards are larger than interior pages so open spreads show a cover rim |
@@ -280,7 +281,7 @@ Listen for `areacomplete: { pageId, blockId, game }` for analytics. On page leav
 
 ### VO ↔ text
 
-While read-aloud plays, Fancifully wraps matching cue payloads into `<span data-cue-id class="fc-cue">` under the page (word- or phrase-level VTT both work). Matching spans get `is-active` / `is-read`. You can still hand-author stable `id` / `data-cue-id` spans; existing targets are left alone. The bottom `.fc-captions` line mirrors cue text by default (`readAloudCaptions: true`) and respects SpringRoll `captionsMuted`; set `readAloudCaptions: false` when in-page highlight is enough (the element remains for other host VO/CC).
+While read-aloud plays, Fancifully wraps matching cue payloads into `<span data-cue-id class="fc-cue">` under the page (word- or phrase-level VTT both work). Matching spans get `is-active` / `is-read`. You can still hand-author stable `id` / `data-cue-id` spans; existing targets are left alone. Highlight color comes from story `cueHighlightColor`, overridable by `StorybookOptions.cueHighlightColor` / `book.setCueHighlightColor` (or CSS `--fc-cue-active-bg` / `--fc-cue-read-bg`). The bottom `.fc-captions` line mirrors cue text by default (`readAloudCaptions: true`) and respects SpringRoll `captionsMuted`; set `readAloudCaptions: false` when in-page highlight is enough (the element remains for other host VO/CC).
 
 ## Scripts
 

@@ -162,6 +162,12 @@ export const storySchema = z.object({
    */
   hardback: z.boolean().optional().default(false),
   /**
+   * CSS color for in-page VO cue highlight (active word/phrase).
+   * Applied as `--fc-cue-active-bg` (read state uses a faded mix).
+   * Host `StorybookOptions.cueHighlightColor` overrides this when set.
+   */
+  cueHighlightColor: z.string().min(1).optional(),
+  /**
    * Closed cover board size. When hardback is on, the rim is
    * `(coverSize - pageSize) / 2` on each edge. Omitted boards use the default overhang.
    */

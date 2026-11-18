@@ -25,8 +25,19 @@ describe('parseStory', () => {
     assert.equal(story.frontCover, false);
     assert.equal(story.backCover, false);
     assert.equal(story.hardback, false);
+    assert.equal(story.cueHighlightColor, undefined);
     assert.equal('flip' in story, false);
     assert.equal(story.pages[0].blocks[0].type, 'text');
+  });
+
+  it('accepts cueHighlightColor', () => {
+    const story = parseStory({
+      id: 't',
+      pageSize: { width: 100, height: 200 },
+      cueHighlightColor: '#BBE9F4',
+      pages: [{ id: 'p1', blocks: [] }],
+    });
+    assert.equal(story.cueHighlightColor, '#BBE9F4');
   });
 
   it('strips legacy story.layout from JSON', () => {

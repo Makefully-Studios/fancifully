@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.6]
+
+### Added
+
+- Story `cueHighlightColor` (and host `StorybookOptions.cueHighlightColor` / `setCueHighlightColor`) for in-page VO cue highlight; host option overrides book data
+
 ## [0.5.5]
 
 ### Added

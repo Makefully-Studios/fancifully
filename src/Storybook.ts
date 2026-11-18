@@ -53,6 +53,11 @@ export type StorybookOptions = {
    * (the `.fc-captions` element remains for host VO / SpringRoll CC later).
    */
   readAloudCaptions?: boolean;
+  /**
+   * Override story `cueHighlightColor` for in-page VO cue highlight.
+   * When unset, the story value (if any) is used; otherwise CSS defaults apply.
+   */
+  cueHighlightColor?: string;
   /** Extra progress listener (SpringRoll Container also receives progress/loading). */
   onProgress?: (progress: LoadProgress) => void;
   /** Built-in Prev / Read / Next chrome labels and visibility. */
@@ -123,6 +128,8 @@ export class Storybook {
   private resizeObserver: ResizeObserver | null = null;
   private listeners = new Map<string, Set<Listener<keyof StorybookEvents>>>();
   private destroyed = false;
+  /** Host override for story cueHighlightColor (undefined = use story / CSS default). */
+  private cueHighlightOverride: string | undefined;
   private btnPrev: HTMLButtonElement;
   private btnRead: HTMLButtonElement;
   private btnNext: HTMLButtonElement;
@@ -156,10 +163,12 @@ export class Storybook {
     singleBreakpoint?: number,
     pageGames?: Record<string, PageGameFactory>,
     readAloudCaptions = true,
+    cueHighlightColor?: string,
   ) {
     this.root = container;
     this.loaded = loaded;
     this.springroll = springroll;
+    this.cueHighlightOverride = cueHighlightColor;
     this.chromeHiddenByOptions = Boolean(chromeOptions.hidden);
     if (pageGames) {
       for (const [id, factory] of Object.entries(pageGames)) {
@@ -245,6 +254,7 @@ export class Storybook {
     this.stage.appendChild(this.spreadView.element);
     this.element.append(this.stage, this.captionsEl, this.chrome);
     this.root.appendChild(this.element);
+    this.applyCueHighlightColor();
 
     this.wireChrome();
     this.wirePager(autoPlayReadAloud);
@@ -327,6 +337,7 @@ export class Storybook {
       options.singleBreakpoint,
       options.pageGames,
       options.readAloudCaptions ?? true,
+      options.cueHighlightColor,
     );
 
     book.pager.updateLayout(
@@ -539,10 +550,20 @@ export class Storybook {
 
     this.spreadView.setLoaded(loaded.story, loaded.assets);
     this.pager.replaceStory(loaded.story, loaded.story.pages[0]?.id ?? null);
+    this.applyCueHighlightColor();
     this.layoutStage();
     await this.syncPageGames();
     this.syncChromeNavState();
     this.emit('ready', { story: loaded.story });
+  }
+
+  /**
+   * Override or clear the VO cue highlight color at runtime.
+   * Pass `null` to fall back to story `cueHighlightColor` / CSS defaults.
+   */
+  setCueHighlightColor(color: string | null): void {
+    this.cueHighlightOverride = color ?? undefined;
+    this.applyCueHighlightColor();
   }
 
   /** Open a `.fanci` File (validates extension/MIME). */
@@ -680,6 +701,24 @@ export class Storybook {
     this.readAloud.stop();
     await action();
     this.layoutStage();
+  }
+
+  /** Resolve host override → story field → CSS defaults for cue highlight vars. */
+  private applyCueHighlightColor(): void {
+    const color =
+      this.cueHighlightOverride?.trim() ||
+      this.loaded.story.cueHighlightColor?.trim() ||
+      '';
+    if (!color) {
+      this.element.style.removeProperty('--fc-cue-active-bg');
+      this.element.style.removeProperty('--fc-cue-read-bg');
+      return;
+    }
+    this.element.style.setProperty('--fc-cue-active-bg', color);
+    this.element.style.setProperty(
+      '--fc-cue-read-bg',
+      `color-mix(in srgb, ${color} 40%, transparent)`,
+    );
   }
 
   private wireChrome(): void {
