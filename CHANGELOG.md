@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.2]
+
+### Fixed
+
+- Fixed-side flips (`single-right` / `single-left`) stage the destination page under the peeling leaf so the next/prev page is revealed
+
 ## [0.5.1]
 
 ### Fixed

@@ -140,12 +140,33 @@
 
 .fc-leaf {
   position: relative;
+  z-index: 1;
   width: var(--fc-page-width);
   height: var(--fc-page-height);
   flex: 0 0 auto;
   overflow: hidden;
   background: var(--fc-page-bg);
   box-shadow: inset 0 0 0 1px rgba(31, 26, 20, 0.08);
+}
+
+/* Incoming page under a fixed-side peel (single-right / single-left). */
+.fc-leaf-underlay {
+  position: absolute;
+  top: 0;
+  z-index: 0;
+  width: var(--fc-page-width);
+  height: var(--fc-page-height);
+  overflow: hidden;
+  background: var(--fc-page-bg);
+  pointer-events: none;
+}
+
+.fc-leaf-underlay-left {
+  left: 0;
+}
+
+.fc-leaf-underlay-right {
+  left: var(--fc-page-width);
 }
 
 .fc-leaf-left {
