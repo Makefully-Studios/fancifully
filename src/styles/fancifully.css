@@ -282,16 +282,29 @@
 
 .fc-cue {
   display: inline;
+  padding: 0;
+  margin: 0;
+  border: 0;
   border-radius: 0.15em;
+  background-color: transparent;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
   transition: background-color 80ms ease;
 }
 
 .fc-cue.is-active {
-  background: var(--fc-cue-active-bg);
+  background-color: var(--fc-cue-active-bg);
+  /* Side bleed without changing inline metrics / line breaks */
+  box-shadow:
+    -0.2em 0 0 var(--fc-cue-active-bg),
+    0.2em 0 0 var(--fc-cue-active-bg);
 }
 
 .fc-cue.is-read:not(.is-active) {
-  background: var(--fc-cue-read-bg);
+  background-color: var(--fc-cue-read-bg);
+  box-shadow:
+    -0.2em 0 0 var(--fc-cue-read-bg),
+    0.2em 0 0 var(--fc-cue-read-bg);
 }
 
 .fc-captions {

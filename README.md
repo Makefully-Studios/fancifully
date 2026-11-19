@@ -281,7 +281,7 @@ Listen for `areacomplete: { pageId, blockId, game }` for analytics. On page leav
 
 ### VO ↔ text
 
-While read-aloud plays, Fancifully wraps matching cue payloads into `<span data-cue-id class="fc-cue">` under the page (word- or phrase-level VTT both work). Matching spans get `is-active` / `is-read`. You can still hand-author stable `id` / `data-cue-id` spans; existing targets are left alone. Highlight color comes from story `cueHighlightColor`, overridable by `StorybookOptions.cueHighlightColor` / `book.setCueHighlightColor` (or CSS `--fc-cue-active-bg` / `--fc-cue-read-bg`). The bottom `.fc-captions` line mirrors cue text by default (`readAloudCaptions: true`) and respects SpringRoll `captionsMuted`; set `readAloudCaptions: false` when in-page highlight is enough (the element remains for other host VO/CC).
+When a page mounts, Fancifully wraps matching cue payloads into `<span data-cue-id class="fc-cue">` (word- or phrase-level VTT both work) so line breaks stay fixed before read-aloud starts. During playback, matching spans get `is-active`; already-spoken cues also get `is-read` by default (`StorybookOptions.cueReadHighlight`, or `book.setCueReadHighlight(false)` to highlight only the active word). You can still hand-author stable `id` / `data-cue-id` spans; existing targets are left alone. Highlight color comes from story `cueHighlightColor`, overridable by `StorybookOptions.cueHighlightColor` / `book.setCueHighlightColor` (or CSS `--fc-cue-active-bg` / `--fc-cue-read-bg`). The bottom `.fc-captions` line mirrors cue text by default (`readAloudCaptions: true`) and respects SpringRoll `captionsMuted`; set `readAloudCaptions: false` when in-page highlight is enough (the element remains for other host VO/CC).
 
 ## Scripts
 

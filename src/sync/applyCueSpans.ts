@@ -4,6 +4,9 @@ import type { Cue } from '../schema/story.js';
  * Wrap page text matching cue payloads with `<span data-cue-id class="fc-cue">`.
  * Works for word- or phrase-level VTT. Skips cues that already have a matching
  * `#id` / `[data-cue-id]` under `root`. Search is sequential and whitespace-flexible.
+ *
+ * Prefer calling when the page mounts (PageView does) so wrapping does not
+ * reflow text when read-aloud starts. Safe to call again — existing targets are skipped.
  */
 export function applyCueSpans(root: ParentNode, cues: Cue[]): void {
   if (!cues.length) return;

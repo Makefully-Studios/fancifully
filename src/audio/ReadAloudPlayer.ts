@@ -35,6 +35,11 @@ export class ReadAloudPlayer {
     }
   }
 
+  /** Soft-highlight already-spoken cues (`.is-read`). Default true. */
+  setCueReadHighlight(enabled: boolean): void {
+    this.timeline.setRetainReadHighlight(enabled);
+  }
+
   onCaption(handler: (text: string | null) => void): void {
     this.onCaptionLine = handler;
   }

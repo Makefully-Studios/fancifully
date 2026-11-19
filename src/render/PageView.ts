@@ -1,5 +1,6 @@
 import type { LoadedAssets } from '../load/loadStory.js';
-import type { StoryPage, TapAction } from '../schema/story.js';
+import type { Cue, StoryPage, TapAction } from '../schema/story.js';
+import { applyCueSpans } from '../sync/applyCueSpans.js';
 import { renderAreaBlock } from './blocks/AreaBlock.js';
 import { renderHotspotBlock } from './blocks/HotspotBlock.js';
 import { renderImageBlock } from './blocks/ImageBlock.js';
@@ -62,9 +63,22 @@ export class PageView {
         this.element.appendChild(renderAreaBlock(block));
       }
     }
+
+    // Wrap VO cue targets at mount so line breaks stay fixed when read-aloud starts.
+    const cues = resolvePageCues(page, assets);
+    if (cues.length > 0) {
+      applyCueSpans(this.element, cues);
+    }
   }
 
   destroy(): void {
     this.element.remove();
   }
+}
+
+function resolvePageCues(page: StoryPage, assets: LoadedAssets): Cue[] {
+  const cues = page.readAloud?.cues;
+  if (!cues) return [];
+  if (Array.isArray(cues)) return cues;
+  return assets.cues.get(cues) ?? [];
 }

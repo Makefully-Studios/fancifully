@@ -58,6 +58,11 @@ export type StorybookOptions = {
    * When unset, the story value (if any) is used; otherwise CSS defaults apply.
    */
   cueHighlightColor?: string;
+  /**
+   * Soft-highlight already-spoken in-page cues (`.fc-cue.is-read`).
+   * Default `true`. Set `false` to highlight only the active cue word/phrase.
+   */
+  cueReadHighlight?: boolean;
   /** Extra progress listener (SpringRoll Container also receives progress/loading). */
   onProgress?: (progress: LoadProgress) => void;
   /** Built-in Prev / Read / Next chrome labels and visibility. */
@@ -164,6 +169,7 @@ export class Storybook {
     pageGames?: Record<string, PageGameFactory>,
     readAloudCaptions = true,
     cueHighlightColor?: string,
+    cueReadHighlight = true,
   ) {
     this.root = container;
     this.loaded = loaded;
@@ -248,6 +254,7 @@ export class Storybook {
       singleBreakpoint,
     });
     this.readAloud = new ReadAloudPlayer(this.bus);
+    this.readAloud.setCueReadHighlight(cueReadHighlight);
     this.sfxAudio = new Audio();
     this.bus.register(this.sfxAudio, 'sfx');
 
@@ -338,6 +345,7 @@ export class Storybook {
       options.pageGames,
       options.readAloudCaptions ?? true,
       options.cueHighlightColor,
+      options.cueReadHighlight ?? true,
     );
 
     book.pager.updateLayout(
@@ -564,6 +572,11 @@ export class Storybook {
   setCueHighlightColor(color: string | null): void {
     this.cueHighlightOverride = color ?? undefined;
     this.applyCueHighlightColor();
+  }
+
+  /** Soft-highlight already-spoken in-page cues (`.is-read`). Default true. */
+  setCueReadHighlight(enabled: boolean): void {
+    this.readAloud.setCueReadHighlight(enabled);
   }
 
   /** Open a `.fanci` File (validates extension/MIME). */

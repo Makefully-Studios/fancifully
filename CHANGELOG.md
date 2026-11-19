@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.7]
+
+### Added
+
+- `StorybookOptions.cueReadHighlight` (default `true`) — soft trail on already-spoken in-page cues (`.is-read`); set `false` for active-word-only highlight
+- Cue highlight side bleed via `box-shadow` (no layout shift)
+
+### Fixed
+
+- Apply VO cue wraps when the page mounts (not when read-aloud starts) so text layout stays stationary; cue highlight CSS no longer changes box metrics
+
 ## [0.5.6]
 
 ### Added
