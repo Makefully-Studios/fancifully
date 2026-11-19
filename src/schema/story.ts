@@ -44,6 +44,8 @@ const classTargetSchema = z.object({
   className: z.string(),
 });
 
+export const readAloudAutoPlaySchema = z.enum(['off', 'page', 'book']);
+
 export const tapActionSchema = z.union([
   z.object({ play: z.string() }),
   z.object({ toggleClass: classTargetSchema }),
@@ -51,7 +53,19 @@ export const tapActionSchema = z.union([
   z.object({ removeClass: classTargetSchema }),
   /** Remove then re-add on the next frame so CSS bursts can fire every tap. */
   z.object({ replayClass: classTargetSchema }),
+  /**
+   * Cycle host read-aloud auto-play through the listed modes
+   * (e.g. `["page","off"]`).
+   */
+  z.object({
+    toggleReadAloudAutoPlay: z.array(readAloudAutoPlaySchema).min(2),
+  }),
 ]);
+
+const readAloudSpecSchema = z.object({
+  audio: z.string(),
+  cues: z.union([z.string(), z.array(cueSchema)]).optional(),
+});
 
 const textBlockSchema = z.object({
   id: z.string(),
@@ -72,6 +86,10 @@ const textBlockSchema = z.object({
       fontStyle: z.string().optional(),
     })
     .optional(),
+  /** Per-textbox VO. Preferred over page-level `readAloud` when present. */
+  readAloud: readAloudSpecSchema.optional(),
+  /** Play order among VO textboxes on the page (ascending). Default: blocks array order. */
+  voOrder: z.number().optional(),
 });
 
 const imageBlockSchema = z.object({
@@ -86,6 +104,7 @@ const hotspotBlockSchema = z.object({
   id: z.string(),
   type: z.literal('hotspot'),
   layout: layoutBoxSchema.optional().default({}),
+  className: z.string().optional(),
   onTap: z.array(tapActionSchema).optional().default([]),
   /**
    * When set, each tap still runs `onTap`. After this many taps, `onComplete`
@@ -129,12 +148,8 @@ export const pageSchema = z.object({
       innerColor: z.string().optional(),
     })
     .optional(),
-  readAloud: z
-    .object({
-      audio: z.string(),
-      cues: z.union([z.string(), z.array(cueSchema)]).optional(),
-    })
-    .optional(),
+  /** Legacy page-level VO. Used when no text block on the page has `readAloud`. */
+  readAloud: readAloudSpecSchema.optional(),
   blocks: z.array(blockSchema).optional().default([]),
 });
 
@@ -214,6 +229,7 @@ export type StoryAsset = z.infer<typeof assetSchema>;
 export type Cue = z.infer<typeof cueSchema>;
 export type LayoutBox = z.infer<typeof layoutBoxSchema>;
 export type TapAction = z.infer<typeof tapActionSchema>;
+export type ReadAloudAutoPlay = z.infer<typeof readAloudAutoPlaySchema>;
 export type AudioChannel = 'vo' | 'sfx' | 'music';
 
 export function parseStory(data: unknown): Story {

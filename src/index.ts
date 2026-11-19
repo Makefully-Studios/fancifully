@@ -17,6 +17,7 @@ export {
   type StoryBlock,
   type StoryAsset,
   type TapAction,
+  type ReadAloudAutoPlay,
   type Cue,
 } from './schema/story.js';
 export { packFanci, downloadBlob, type PackFanciOptions } from './pack/packFanci.js';

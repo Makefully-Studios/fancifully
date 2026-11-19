@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.8]
+
+### Added
+
+- Text-block `readAloud` / `voOrder` (preferred over page-level VO); page `readAloud` kept as fallback
+- `StorybookOptions.readAloudAutoPlay`: `'off' | 'page' | 'book'` (replaces boolean `autoPlayReadAloud`; `true` still maps to `'page'`)
+- `StorybookOptions.textTapReadAloud` — tap a VO textbox to start/stop that clip
+- Hotspot tap action `toggleReadAloudAutoPlay` to cycle modes; mirrors `is-autoplay-off` on the hotspot
+
 ## [0.5.7]
 
 ### Added

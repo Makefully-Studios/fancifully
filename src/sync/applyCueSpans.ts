@@ -35,7 +35,8 @@ function resolveScopes(root: ParentNode): Element[] {
   if (typeof (root as Element).querySelectorAll !== 'function') return [];
   const texts = Array.from((root as Element).querySelectorAll('.fc-block-text'));
   if (texts.length > 0) return texts;
-  if (root instanceof Element) return [root];
+  // Prefer duck-typing: happy-dom / workers may lack a global `Element`.
+  if (typeof (root as Element).querySelector === 'function') return [root as Element];
   return [];
 }
 

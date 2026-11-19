@@ -232,6 +232,15 @@
   line-height: 1.35;
 }
 
+.fc-block-text--tappable {
+  cursor: pointer;
+}
+
+.fc-block-text--tappable:focus-visible {
+  outline: 2px solid var(--fc-accent);
+  outline-offset: 2px;
+}
+
 /* Match Fabric Textbox (no UA paragraph margins) so edit ↔ read doesn't jump. */
 .fc-block-text p,
 .fc-block-text h1,

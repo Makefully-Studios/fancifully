@@ -221,7 +221,22 @@ async function preloadAssets(
   const entries = Object.entries(story.assets) as [string, StoryAsset][];
   const extraHtmlJobs: Array<() => Promise<void>> = [];
 
+  const enqueueLooseVtt = (cueId: string) => {
+    if (story.assets[cueId]) return;
+    extraHtmlJobs.push(async () => {
+      const url = resolveUrl(baseUrl, cueId);
+      try {
+        cues.set(cueId, parseVtt(await fetchText(url)));
+      } catch {
+        // optional
+      }
+    });
+  };
+
   for (const page of story.pages) {
+    if (page.readAloud?.cues && typeof page.readAloud.cues === 'string') {
+      enqueueLooseVtt(page.readAloud.cues);
+    }
     for (const block of page.blocks) {
       if (block.type === 'text' && block.htmlSrc && !block.html) {
         extraHtmlJobs.push(async () => {
@@ -229,18 +244,8 @@ async function preloadAssets(
           html.set(`htmlSrc:${block.id}`, await fetchText(url));
         });
       }
-      if (page.readAloud?.cues && typeof page.readAloud.cues === 'string') {
-        const cueId = page.readAloud.cues;
-        if (!story.assets[cueId]) {
-          extraHtmlJobs.push(async () => {
-            const url = resolveUrl(baseUrl, cueId);
-            try {
-              cues.set(cueId, parseVtt(await fetchText(url)));
-            } catch {
-              // optional
-            }
-          });
-        }
+      if (block.type === 'text' && block.readAloud?.cues && typeof block.readAloud.cues === 'string') {
+        enqueueLooseVtt(block.readAloud.cues);
       }
     }
   }

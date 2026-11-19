@@ -8,6 +8,8 @@ export type ReadAloudClip = {
   channel: 'vo' | 'sfx' | 'music';
   cues: Cue[];
   root: ParentNode | null;
+  /** Text-block id when this clip belongs to a VO textbox. */
+  blockId?: string;
 };
 
 export class ReadAloudPlayer {
@@ -18,7 +20,9 @@ export class ReadAloudPlayer {
   private raf = 0;
   private captionsMuted = false;
   private onCaptionLine: ((text: string | null) => void) | null = null;
+  private onSequenceComplete: (() => void) | null = null;
   private playing = false;
+  private currentBlockId: string | null = null;
 
   constructor(bus: AudioBus) {
     this.bus = bus;
@@ -44,6 +48,19 @@ export class ReadAloudPlayer {
     this.onCaptionLine = handler;
   }
 
+  /** Fires when a playSequence queue drains naturally (not after stop()). */
+  onComplete(handler: (() => void) | null): void {
+    this.onSequenceComplete = handler;
+  }
+
+  getPlayingBlockId(): string | null {
+    return this.playing ? this.currentBlockId : null;
+  }
+
+  isPlaying(): boolean {
+    return this.playing;
+  }
+
   async playSequence(clips: ReadAloudClip[]): Promise<void> {
     this.stop();
     this.queue = clips.filter((c) => Boolean(c.url));
@@ -65,6 +82,7 @@ export class ReadAloudPlayer {
 
   stop(): void {
     this.playing = false;
+    this.currentBlockId = null;
     this.queue = [];
     this.audio.pause();
     this.audio.removeAttribute('src');
@@ -83,12 +101,16 @@ export class ReadAloudPlayer {
     this.cancelTick();
     const next = this.queue.shift();
     if (!next) {
+      const finished = this.playing;
       this.playing = false;
+      this.currentBlockId = null;
       this.timeline.reset();
       this.onCaptionLine?.(null);
+      if (finished) this.onSequenceComplete?.();
       return;
     }
 
+    this.currentBlockId = next.blockId ?? null;
     this.timeline.setCues(next.cues);
     if (next.root) {
       applyCueSpans(next.root, next.cues);

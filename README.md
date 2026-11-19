@@ -219,7 +219,8 @@ Stories are JSON packages (not a single HTML document). Text may embed HTML; ima
 | `hardback` | If true (with a cover flag), cover boards are larger than interior pages so open spreads show a cover rim |
 | `assets` | Map of image / audio / vtt / html |
 | `pages[].blocks` | `text`, `image`, `hotspot`, `area` with `layout` boxes |
-| `pages[].readAloud` | `{ audio, cues }` — cues are a VTT asset id or inline `{id,start,end}[]` |
+| `pages[].blocks[]` (text) `readAloud` / `voOrder` | Preferred per-textbox VO; clips play in `voOrder` then block order |
+| `pages[].readAloud` | Legacy page VO `{ audio, cues }` when no text block has `readAloud` |
 
 `pages` is always a flat list. Facing pages are a reader presentation, not a stored spread.
 
@@ -234,8 +235,9 @@ Stories are JSON packages (not a single HTML document). Text may embed HTML; ima
 | `{ addClass: { target, className } }` | Add a class (one-way reveal) |
 | `{ removeClass: { target, className } }` | Remove a class |
 | `{ replayClass: { target, className } }` | Remove then re-add next frame (CSS bursts every tap) |
+| `{ toggleReadAloudAutoPlay: ['page','off'] }` | Cycle host `readAloudAutoPlay` through the listed modes; hotspot gets `is-autoplay-off` when mode is `off` |
 
-Optional `requiredTaps` counts taps; after N taps, `onComplete` runs **once** (each tap still runs `onTap`).
+Optional `requiredTaps` counts taps; after N taps, `onComplete` runs **once** (each tap still runs `onTap`). Optional `className` is applied on the hotspot element.
 
 ### Area blocks (host minigames)
 
@@ -281,7 +283,7 @@ Listen for `areacomplete: { pageId, blockId, game }` for analytics. On page leav
 
 ### VO ↔ text
 
-When a page mounts, Fancifully wraps matching cue payloads into `<span data-cue-id class="fc-cue">` (word- or phrase-level VTT both work) so line breaks stay fixed before read-aloud starts. During playback, matching spans get `is-active`; already-spoken cues also get `is-read` by default (`StorybookOptions.cueReadHighlight`, or `book.setCueReadHighlight(false)` to highlight only the active word). You can still hand-author stable `id` / `data-cue-id` spans; existing targets are left alone. Highlight color comes from story `cueHighlightColor`, overridable by `StorybookOptions.cueHighlightColor` / `book.setCueHighlightColor` (or CSS `--fc-cue-active-bg` / `--fc-cue-read-bg`). The bottom `.fc-captions` line mirrors cue text by default (`readAloudCaptions: true`) and respects SpringRoll `captionsMuted`; set `readAloudCaptions: false` when in-page highlight is enough (the element remains for other host VO/CC).
+When a page mounts, Fancifully wraps matching cue payloads into `<span data-cue-id class="fc-cue">` (word- or phrase-level VTT both work) so line breaks stay fixed before read-aloud starts. Prefer `readAloud` on text blocks (`voOrder` optional); page-level `readAloud` remains as a fallback. Host `readAloudAutoPlay` is `'off'` (default), `'page'` (play VO when the page becomes active), or `'book'` (same, then auto-`next()` when clips finish). Set `textTapReadAloud: true` so tapping a VO textbox starts/stops that clip. During playback, matching spans get `is-active`; already-spoken cues also get `is-read` by default (`cueReadHighlight`, or `book.setCueReadHighlight(false)` for active-word-only). Highlight color comes from story `cueHighlightColor`, overridable by `cueHighlightColor` / `setCueHighlightColor` (or CSS `--fc-cue-active-bg` / `--fc-cue-read-bg`). The bottom `.fc-captions` line mirrors cue text by default (`readAloudCaptions: true`); set `false` when in-page highlight is enough.
 
 ## Scripts
 

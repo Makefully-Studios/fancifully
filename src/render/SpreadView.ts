@@ -15,8 +15,8 @@ import {
   type Spread,
   type SpreadLeaf,
 } from '../nav/layoutMode.js';
-import type { Story, TapAction } from '../schema/story.js';
-import { PageView } from './PageView.js';
+import type { Story } from '../schema/story.js';
+import { PageView, type PageViewHandlers } from './PageView.js';
 
 export type SpreadViewFlipOptions = {
   flipStyle?: FlipStyleInput;
@@ -49,7 +49,7 @@ export class SpreadView {
   private rightPage: PageView | null = null;
   private story: Story;
   private assets: LoadedAssets;
-  private onTapActions: (actions: TapAction[], pageEl: HTMLElement) => void;
+  private pageHandlers: PageViewHandlers;
   private turning = false;
   private bookState: BookState = 'open';
   private layoutMode: ResolvedLayoutMode = 'two-page';
@@ -62,12 +62,12 @@ export class SpreadView {
   constructor(
     story: Story,
     assets: LoadedAssets,
-    onTapActions: (actions: TapAction[], pageEl: HTMLElement) => void,
+    pageHandlers: PageViewHandlers,
     flipOptions: SpreadViewFlipOptions = {},
   ) {
     this.story = story;
     this.assets = assets;
-    this.onTapActions = onTapActions;
+    this.pageHandlers = pageHandlers;
     this.flipStyle = createFlipStyle(flipOptions.flipStyle);
     this.flipSpeedMs = resolveFlipSpeedMs(flipOptions.flipSpeed);
 
@@ -731,9 +731,14 @@ export class SpreadView {
 
   private createLeaf(leaf: SpreadLeaf): PageView {
     if (leaf.kind === 'blank') {
-      return new PageView(null, this.assets, { onTapActions: this.onTapActions });
+      return new PageView(null, this.assets, this.pageHandlers);
     }
     const page = this.story.pages[leaf.pageIndex];
-    return new PageView(page, this.assets, { onTapActions: this.onTapActions });
+    return new PageView(page, this.assets, this.pageHandlers);
+  }
+
+  /** Update text-tap / hotspot handlers (e.g. after host option changes). */
+  setPageHandlers(handlers: PageViewHandlers): void {
+    this.pageHandlers = handlers;
   }
 }

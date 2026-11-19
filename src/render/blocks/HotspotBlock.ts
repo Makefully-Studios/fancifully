@@ -20,7 +20,7 @@ export function renderHotspotBlock(
 ): HTMLElement {
   const el = document.createElement('button');
   el.type = 'button';
-  el.className = 'fc-block fc-block-hotspot';
+  el.className = ['fc-block', 'fc-block-hotspot', block.className].filter(Boolean).join(' ');
   el.dataset.blockId = block.id;
   el.setAttribute('aria-label', block.ariaLabel ?? block.id);
   applyLayout(el, block.layout);

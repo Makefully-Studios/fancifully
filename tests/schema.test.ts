@@ -136,4 +136,41 @@ describe('parseStory', () => {
       }),
     );
   });
+
+  it('accepts text-block readAloud, voOrder, and toggleReadAloudAutoPlay', () => {
+    const story = parseStory({
+      id: 't',
+      pageSize: { width: 100, height: 100 },
+      pages: [
+        {
+          id: 'p1',
+          blocks: [
+            {
+              id: 't1',
+              type: 'text',
+              html: '<p>Hello</p>',
+              readAloud: { audio: 'vo1', cues: 'vtt1' },
+              voOrder: 2,
+            },
+            {
+              id: 'h1',
+              type: 'hotspot',
+              className: 'autoplay-toggle',
+              onTap: [{ toggleReadAloudAutoPlay: ['page', 'off'] }],
+            },
+          ],
+        },
+      ],
+    });
+    const text = story.pages[0].blocks[0];
+    assert.ok(text && text.type === 'text');
+    assert.equal(text.readAloud?.audio, 'vo1');
+    assert.equal(text.voOrder, 2);
+    const hotspot = story.pages[0].blocks[1];
+    assert.ok(hotspot && hotspot.type === 'hotspot');
+    assert.equal(hotspot.className, 'autoplay-toggle');
+    assert.deepEqual(hotspot.onTap?.[0], {
+      toggleReadAloudAutoPlay: ['page', 'off'],
+    });
+  });
 });

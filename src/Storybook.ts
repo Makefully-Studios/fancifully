@@ -16,7 +16,13 @@ import type { LayoutMode } from './nav/layoutMode.js';
 import { Pager, type PagerEvents } from './nav/Pager.js';
 import { downloadBlob, packFanci } from './pack/packFanci.js';
 import { SpreadView, type StageZoom } from './render/SpreadView.js';
-import type { Cue, Story, StoryPage, TapAction } from './schema/story.js';
+import type {
+  Cue,
+  ReadAloudAutoPlay,
+  Story,
+  StoryPage,
+  TapAction,
+} from './schema/story.js';
 import {
   bindApplication,
   createSpringrollApplication,
@@ -46,7 +52,21 @@ export type StorybookOptions = {
   storyName?: string;
   springroll?: SpringrollLike | null;
   features?: Record<string, boolean>;
+  /**
+   * @deprecated Use `readAloudAutoPlay: 'page'` instead.
+   * When true and `readAloudAutoPlay` is unset, behaves as `'page'`.
+   */
   autoPlayReadAloud?: boolean;
+  /**
+   * Auto-play VO textboxes: `off` (default), `page` (on pagechange), or
+   * `book` (page then auto-advance to the next page when clips finish).
+   */
+  readAloudAutoPlay?: ReadAloudAutoPlay;
+  /**
+   * When true, tapping a textbox that has `readAloud` starts/stops that clip.
+   * Default `false`.
+   */
+  textTapReadAloud?: boolean;
   /**
    * Show the bottom caption line while page read-aloud plays.
    * Default `true`. Set `false` when cues already highlight in-page text
@@ -135,6 +155,10 @@ export class Storybook {
   private destroyed = false;
   /** Host override for story cueHighlightColor (undefined = use story / CSS default). */
   private cueHighlightOverride: string | undefined;
+  private readAloudAutoPlay: ReadAloudAutoPlay = 'off';
+  private textTapReadAloud = false;
+  /** When true, sequence completion may auto-advance (book mode). */
+  private bookAdvanceArmed = false;
   private btnPrev: HTMLButtonElement;
   private btnRead: HTMLButtonElement;
   private btnNext: HTMLButtonElement;
@@ -160,7 +184,7 @@ export class Storybook {
     container: HTMLElement,
     loaded: LoadedStory,
     springroll: SpringrollLike | null,
-    autoPlayReadAloud: boolean,
+    readAloudAutoPlay: ReadAloudAutoPlay,
     chromeOptions: StorybookChromeOptions = {},
     flipStyle?: FlipStyleInput,
     flipSpeed?: number,
@@ -170,11 +194,14 @@ export class Storybook {
     readAloudCaptions = true,
     cueHighlightColor?: string,
     cueReadHighlight = true,
+    textTapReadAloud = false,
   ) {
     this.root = container;
     this.loaded = loaded;
     this.springroll = springroll;
     this.cueHighlightOverride = cueHighlightColor;
+    this.readAloudAutoPlay = readAloudAutoPlay;
+    this.textTapReadAloud = textTapReadAloud;
     this.chromeHiddenByOptions = Boolean(chromeOptions.hidden);
     if (pageGames) {
       for (const [id, factory] of Object.entries(pageGames)) {
@@ -243,7 +270,11 @@ export class Storybook {
     this.spreadView = new SpreadView(
       loaded.story,
       loaded.assets,
-      (actions, pageEl) => this.handleTapActions(actions, pageEl),
+      {
+        onTapActions: (actions, pageEl) => this.handleTapActions(actions, pageEl),
+        textTapReadAloud: this.textTapReadAloud,
+        onTextTapReadAloud: (blockId) => this.handleTextTapReadAloud(blockId),
+      },
       {
         flipStyle: flipStyle ?? 'default',
         flipSpeed,
@@ -255,6 +286,7 @@ export class Storybook {
     });
     this.readAloud = new ReadAloudPlayer(this.bus);
     this.readAloud.setCueReadHighlight(cueReadHighlight);
+    this.readAloud.onComplete(() => this.handleReadAloudComplete());
     this.sfxAudio = new Audio();
     this.bus.register(this.sfxAudio, 'sfx');
 
@@ -264,7 +296,7 @@ export class Storybook {
     this.applyCueHighlightColor();
 
     this.wireChrome();
-    this.wirePager(autoPlayReadAloud);
+    this.wirePager();
     this.wireSpringroll();
     this.wireResize();
     this.unbindSwipe = bindSwipe(this.stage, {
@@ -336,7 +368,7 @@ export class Storybook {
       container,
       loaded,
       springroll,
-      options.autoPlayReadAloud ?? false,
+      resolveReadAloudAutoPlay(options),
       options.chrome ?? {},
       options.flipStyle,
       options.flipSpeed,
@@ -346,6 +378,7 @@ export class Storybook {
       options.readAloudCaptions ?? true,
       options.cueHighlightColor,
       options.cueReadHighlight ?? true,
+      options.textTapReadAloud ?? false,
     );
 
     book.pager.updateLayout(
@@ -530,6 +563,7 @@ export class Storybook {
   playReadAloud(): Promise<void> {
     if (this.navLocked) return Promise.resolve();
     const clips = this.buildReadAloudClips();
+    this.bookAdvanceArmed = this.readAloudAutoPlay === 'book';
     return this.readAloud.playSequence(clips);
   }
 
@@ -577,6 +611,27 @@ export class Storybook {
   /** Soft-highlight already-spoken in-page cues (`.is-read`). Default true. */
   setCueReadHighlight(enabled: boolean): void {
     this.readAloud.setCueReadHighlight(enabled);
+  }
+
+  getReadAloudAutoPlay(): ReadAloudAutoPlay {
+    return this.readAloudAutoPlay;
+  }
+
+  setReadAloudAutoPlay(mode: ReadAloudAutoPlay): void {
+    this.readAloudAutoPlay = mode;
+    this.syncAutoplayToggleClasses();
+  }
+
+  setTextTapReadAloud(enabled: boolean): void {
+    this.textTapReadAloud = enabled;
+    this.spreadView.setPageHandlers({
+      onTapActions: (actions, pageEl) => this.handleTapActions(actions, pageEl),
+      textTapReadAloud: this.textTapReadAloud,
+      onTextTapReadAloud: (blockId) => this.handleTextTapReadAloud(blockId),
+    });
+    this.spreadView.remountCurrent();
+    this.layoutStage();
+    this.syncAutoplayToggleClasses();
   }
 
   /** Open a `.fanci` File (validates extension/MIME). */
@@ -711,6 +766,7 @@ export class Storybook {
   }
 
   private async navigate(action: () => Promise<void>): Promise<void> {
+    this.bookAdvanceArmed = false;
     this.readAloud.stop();
     await action();
     this.layoutStage();
@@ -752,19 +808,27 @@ export class Storybook {
     this.btnNext.setAttribute('aria-disabled', String(!canNext));
   }
 
-  private wirePager(autoPlay: boolean): void {
+  private wirePager(): void {
     this.pager.on('pagechange', (payload) => {
       void this.syncPageGames().then(() => {
         this.syncChromeNavState();
+        this.syncAutoplayToggleClasses();
         this.emit('pagechange', payload);
-        if (autoPlay && !this.navLocked) void this.playReadAloud();
+        if (
+          (this.readAloudAutoPlay === 'page' || this.readAloudAutoPlay === 'book') &&
+          !this.navLocked
+        ) {
+          void this.playReadAloud();
+        }
       });
     });
     this.pager.on('layoutchange', (payload) => {
+      this.bookAdvanceArmed = false;
       this.readAloud.stop();
       this.layoutStage();
       void this.syncPageGames().then(() => {
         this.syncChromeNavState();
+        this.syncAutoplayToggleClasses();
         this.emit('layoutchange', payload);
       });
     });
@@ -821,7 +885,7 @@ export class Storybook {
     }
   }
 
-  private buildReadAloudClips(): ReadAloudClip[] {
+  private visibleLeaves() {
     const mode = this.pager.layoutMode;
     const spread = this.pager.currentSpread;
     const bookState = this.pager.currentBookState;
@@ -839,30 +903,112 @@ export class Storybook {
             ? [spread.left]
             : [spread.left];
     }
+    return leaves;
+  }
 
+  private buildReadAloudClips(): ReadAloudClip[] {
     const clips: ReadAloudClip[] = [];
-    for (const leaf of leaves) {
+    for (const leaf of this.visibleLeaves()) {
       if (leaf.kind !== 'page') continue;
       const page = this.loaded.story.pages[leaf.pageIndex];
-      if (!page.readAloud) continue;
-      const audioMeta = this.loaded.assets.audioUrls.get(page.readAloud.audio);
-      if (!audioMeta) continue;
-      const cues = this.resolveCues(page.readAloud.cues);
-      const root = this.spreadView.getPageElement(page.id);
-      clips.push({
-        url: audioMeta.url,
-        channel: audioMeta.channel,
-        cues,
-        root,
-      });
+      if (!page) continue;
+      clips.push(...this.buildPageReadAloudClips(page));
     }
     return clips;
+  }
+
+  private buildPageReadAloudClips(page: StoryPage): ReadAloudClip[] {
+    const pageEl = this.spreadView.getPageElement(page.id);
+    const textVo = page.blocks
+      .map((block, index) => ({ block, index }))
+      .filter(
+        (entry): entry is { block: Extract<(typeof page.blocks)[number], { type: 'text' }>; index: number } =>
+          entry.block.type === 'text' && Boolean(entry.block.readAloud),
+      )
+      .sort((a, b) => {
+        const ao = a.block.voOrder ?? a.index;
+        const bo = b.block.voOrder ?? b.index;
+        return ao - bo;
+      });
+
+    if (textVo.length > 0) {
+      const clips: ReadAloudClip[] = [];
+      for (const { block } of textVo) {
+        const spec = block.readAloud!;
+        const audioMeta = this.loaded.assets.audioUrls.get(spec.audio);
+        if (!audioMeta) continue;
+        const root =
+          pageEl?.querySelector(`[data-block-id="${block.id.replace(/"/g, '\\"')}"]`) ??
+          pageEl;
+        clips.push({
+          url: audioMeta.url,
+          channel: audioMeta.channel,
+          cues: this.resolveCues(spec.cues),
+          root,
+          blockId: block.id,
+        });
+      }
+      return clips;
+    }
+
+    if (!page.readAloud) return [];
+    const audioMeta = this.loaded.assets.audioUrls.get(page.readAloud.audio);
+    if (!audioMeta) return [];
+    return [
+      {
+        url: audioMeta.url,
+        channel: audioMeta.channel,
+        cues: this.resolveCues(page.readAloud.cues),
+        root: pageEl,
+      },
+    ];
   }
 
   private resolveCues(cues: string | Cue[] | undefined): Cue[] {
     if (!cues) return [];
     if (Array.isArray(cues)) return cues;
     return this.loaded.assets.cues.get(cues) ?? [];
+  }
+
+  private handleTextTapReadAloud(blockId: string): void {
+    if (this.navLocked || !this.textTapReadAloud) return;
+    if (this.readAloud.isPlaying() && this.readAloud.getPlayingBlockId() === blockId) {
+      this.bookAdvanceArmed = false;
+      this.readAloud.stop();
+      return;
+    }
+    const clip = this.buildReadAloudClips().find((c) => c.blockId === blockId);
+    if (!clip) return;
+    this.bookAdvanceArmed = false;
+    void this.readAloud.playSequence([clip]);
+  }
+
+  private handleReadAloudComplete(): void {
+    if (!this.bookAdvanceArmed) return;
+    this.bookAdvanceArmed = false;
+    if (this.readAloudAutoPlay !== 'book' || this.navLocked) return;
+    if (this.hasIncompleteAreaGate() || !this.pager.canNext) return;
+    void this.next();
+  }
+
+  private syncAutoplayToggleClasses(): void {
+    const off = this.readAloudAutoPlay === 'off';
+    this.element.querySelectorAll('[data-block-id]').forEach((el) => {
+      if (!(el instanceof HTMLElement)) return;
+      // Hotspots that can toggle autoplay get a mirrored off state for CSS.
+      const isToggle = el.classList.contains('fc-block-hotspot');
+      if (!isToggle) return;
+      // Only mark hotspots that declare the toggle action in story data.
+      const pageId = el.closest('.fc-page')?.getAttribute('data-page-id');
+      const page = this.loaded.story.pages.find((p) => p.id === pageId);
+      const block = page?.blocks.find((b) => b.id === el.dataset.blockId);
+      if (!block || block.type !== 'hotspot') return;
+      const hasToggle = [...(block.onTap ?? []), ...(block.onComplete ?? [])].some(
+        (a) => 'toggleReadAloudAutoPlay' in a,
+      );
+      if (!hasToggle) return;
+      el.classList.toggle('is-autoplay-off', off);
+    });
   }
 
   private handleTapActions(actions: TapAction[], pageEl: HTMLElement): void {
@@ -882,6 +1028,12 @@ export class Storybook {
         this.applyClassAction(pageEl, action.removeClass, 'remove');
       } else if ('replayClass' in action) {
         this.applyClassAction(pageEl, action.replayClass, 'replay');
+      } else if ('toggleReadAloudAutoPlay' in action) {
+        const modes = action.toggleReadAloudAutoPlay;
+        if (modes.length < 2) continue;
+        const idx = modes.indexOf(this.readAloudAutoPlay);
+        const next = modes[(idx >= 0 ? idx + 1 : 0) % modes.length]!;
+        this.setReadAloudAutoPlay(next);
       }
     }
   }
@@ -1024,6 +1176,12 @@ function createBlankPage(story: Story): StoryPage {
     background: { color: '#faf6ef' },
     blocks: [],
   };
+}
+
+function resolveReadAloudAutoPlay(options: StorybookOptions): ReadAloudAutoPlay {
+  if (options.readAloudAutoPlay) return options.readAloudAutoPlay;
+  if (options.autoPlayReadAloud) return 'page';
+  return 'off';
 }
 
 function primeSpringrollListeners(app: SpringrollLike): void {

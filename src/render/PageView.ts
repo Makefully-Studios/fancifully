@@ -4,10 +4,12 @@ import { applyCueSpans } from '../sync/applyCueSpans.js';
 import { renderAreaBlock } from './blocks/AreaBlock.js';
 import { renderHotspotBlock } from './blocks/HotspotBlock.js';
 import { renderImageBlock } from './blocks/ImageBlock.js';
-import { renderTextBlock } from './blocks/TextBlock.js';
+import { renderTextBlock, type TextBlockTapHandler } from './blocks/TextBlock.js';
 
 export type PageViewHandlers = {
   onTapActions: (actions: TapAction[], pageEl: HTMLElement) => void;
+  onTextTapReadAloud?: TextBlockTapHandler;
+  textTapReadAloud?: boolean;
 };
 
 export class PageView {
@@ -45,6 +47,8 @@ export class PageView {
       }
     }
 
+    const textEls = new Map<string, HTMLElement>();
+
     for (const block of page.blocks) {
       if (block.type === 'text') {
         const html =
@@ -52,7 +56,13 @@ export class PageView {
           assets.html.get(`htmlSrc:${block.id}`) ??
           (block.htmlSrc ? assets.html.get(block.htmlSrc) : undefined) ??
           '';
-        this.element.appendChild(renderTextBlock(block, html));
+        const tapEnabled = Boolean(handlers.textTapReadAloud && block.readAloud);
+        const el = renderTextBlock(block, html, {
+          tapReadAloud: tapEnabled,
+          onTapReadAloud: handlers.onTextTapReadAloud,
+        });
+        textEls.set(block.id, el);
+        this.element.appendChild(el);
       } else if (block.type === 'image') {
         this.element.appendChild(renderImageBlock(block, assets.images.get(block.asset)));
       } else if (block.type === 'hotspot') {
@@ -64,10 +74,21 @@ export class PageView {
       }
     }
 
-    // Wrap VO cue targets at mount so line breaks stay fixed when read-aloud starts.
-    const cues = resolvePageCues(page, assets);
-    if (cues.length > 0) {
-      applyCueSpans(this.element, cues);
+    // Prefer per-textbox cue wraps; fall back to page-level cues on the page root.
+    let anyBlockCues = false;
+    for (const block of page.blocks) {
+      if (block.type !== 'text' || !block.readAloud) continue;
+      const cues = resolveCues(block.readAloud.cues, assets);
+      if (cues.length === 0) continue;
+      anyBlockCues = true;
+      const el = textEls.get(block.id);
+      if (el) applyCueSpans(el, cues);
+    }
+    if (!anyBlockCues) {
+      const pageCues = resolveCues(page.readAloud?.cues, assets);
+      if (pageCues.length > 0) {
+        applyCueSpans(this.element, pageCues);
+      }
     }
   }
 
@@ -76,8 +97,10 @@ export class PageView {
   }
 }
 
-function resolvePageCues(page: StoryPage, assets: LoadedAssets): Cue[] {
-  const cues = page.readAloud?.cues;
+function resolveCues(
+  cues: string | Cue[] | undefined,
+  assets: LoadedAssets,
+): Cue[] {
   if (!cues) return [];
   if (Array.isArray(cues)) return cues;
   return assets.cues.get(cues) ?? [];
