@@ -3,6 +3,10 @@ export type SwipeHandlers = {
   onSwipeRight?: () => void;
 };
 
+/** Starts inside these hosts should not turn the page (games / hotspot drags). */
+const SWIPE_IGNORE =
+  '.fc-block-area, .fc-block-hotspot, [data-fc-no-swipe]';
+
 export function bindSwipe(target: HTMLElement, handlers: SwipeHandlers): () => void {
   let startX = 0;
   let startY = 0;
@@ -10,6 +14,8 @@ export function bindSwipe(target: HTMLElement, handlers: SwipeHandlers): () => v
 
   const onStart = (event: PointerEvent) => {
     if (event.button != null && event.button !== 0) return;
+    const origin = event.target;
+    if (origin instanceof Element && origin.closest(SWIPE_IGNORE)) return;
     tracking = true;
     startX = event.clientX;
     startY = event.clientY;

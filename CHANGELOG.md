@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.13]
+
+### Fixed
+
+- Page swipe ignores pointer gestures that start inside `.fc-block-area` / `.fc-block-hotspot` so finishing a drag game does not turn the page
+
 ## [0.5.12]
 
 ### Fixed
