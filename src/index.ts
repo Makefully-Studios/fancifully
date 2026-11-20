@@ -18,8 +18,18 @@ export {
   type StoryAsset,
   type TapAction,
   type ReadAloudAutoPlay,
+  type PageTrigger,
+  type PageHighlight,
   type Cue,
+  pageTriggerSchema,
+  pageHighlightSchema,
 } from './schema/story.js';
+export {
+  triggerMatchesAutoPlay,
+  defaultHighlightTargets,
+  resolveHighlightTargets,
+  resolveHighlightClassName,
+} from './sync/pageTriggers.js';
 export { packFanci, downloadBlob, type PackFanciOptions } from './pack/packFanci.js';
 export {
   fabricLikeToPage,

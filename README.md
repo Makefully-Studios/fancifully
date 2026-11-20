@@ -285,6 +285,20 @@ Listen for `areacomplete: { pageId, blockId, game }` for analytics. On page leav
 
 When a page mounts, Fancifully wraps matching cue payloads into `<span data-cue-id class="fc-cue">` (word- or phrase-level VTT both work) so line breaks stay fixed before read-aloud starts. Prefer `readAloud` on text blocks (`voOrder` optional); page-level `readAloud` remains as a fallback. Host `readAloudAutoPlay` is `'off'` (default), `'page'` (play VO when the page becomes active), or `'book'` (same, then auto-`next()` when clips finish). Set `textTapReadAloud: true` so tapping a VO textbox starts/stops that clip. During playback, matching spans get `is-active`; already-spoken cues also get `is-read` by default (`cueReadHighlight`, or `book.setCueReadHighlight(false)` for active-word-only). Highlight color comes from story `cueHighlightColor`, overridable by `cueHighlightColor` / `setCueHighlightColor` (or CSS `--fc-cue-active-bg` / `--fc-cue-read-bg`). The bottom `.fc-captions` line mirrors cue text by default (`readAloudCaptions: true`); set `false` when in-page highlight is enough.
 
+### Page triggers (attention + instruction VO)
+
+Pages may declare `triggers` that fire after story read-aloud or on page enter:
+
+| Field | Role |
+|--------|------|
+| `when` | `afterReadAloud` (story VO finished / empty) or `pageEnter` |
+| `delayMs` | Pause before firing (e.g. `600` after VO, `5000` when autoplay is off) |
+| `whenAutoPlay` | Optional filter: only run when host mode is one of these (`off` / `page` / `book`) |
+| `highlight` | Add `fc-attention` (or custom `className`) to `targets` (default: hotspots + areas). `mode: 'rect' \| 'art'` — rect pulse for now |
+| `readAloud` | Optional instruction clip (separate from story text VO) |
+
+Attention clears on navigate, hotspot tap, or area complete. `voend` emits `{ phase: 'story' \| 'instruction' }`. In `book` autoplay, advance waits for instruction VO when present.
+
 ## Scripts
 
 ```bash

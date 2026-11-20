@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.9]
+
+### Added
+
+- Page `triggers` for post-story / page-enter attention highlights and optional instruction VO (`when: afterReadAloud | pageEnter`, `whenAutoPlay`, `highlight`, `readAloud`)
+- `.fc-attention` pulsing bordered rectangle (highlight `mode: 'art'` reserved; same rect treatment for now)
+- `voend` event with `{ phase: 'story' | 'instruction' }`; book auto-advance waits for instruction VO when present
+
 ## [0.5.8]
 
 ### Added

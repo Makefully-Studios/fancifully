@@ -133,6 +133,7 @@ export function loadEpubFromZip(entries: ZipEntries): EpubPackage {
       id: pageId,
       background,
       readAloud,
+      triggers: [],
       blocks,
     });
   });

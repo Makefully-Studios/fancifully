@@ -18,6 +18,7 @@ import { downloadBlob, packFanci } from './pack/packFanci.js';
 import { SpreadView, type StageZoom } from './render/SpreadView.js';
 import type {
   Cue,
+  PageTrigger,
   ReadAloudAutoPlay,
   Story,
   StoryPage,
@@ -33,6 +34,11 @@ import {
   reportSpringrollProgress,
   type LoadProgress,
 } from './springroll/loading.js';
+import {
+  resolveHighlightClassName,
+  resolveHighlightTargets,
+  triggerMatchesAutoPlay,
+} from './sync/pageTriggers.js';
 import { setButtonIconContent } from './ui/iconifyIcon.js';
 
 export type StorybookChromeOptions = {
@@ -119,6 +125,8 @@ type StorybookEvents = PagerEvents & {
   ready: { story: Story };
   loading: LoadProgress;
   areacomplete: { pageId: string; blockId: string; game: string };
+  /** Story or instruction VO sequence finished naturally. */
+  voend: { phase: 'story' | 'instruction' };
 };
 
 type Listener<K extends keyof StorybookEvents> = (payload: StorybookEvents[K]) => void;
@@ -159,6 +167,10 @@ export class Storybook {
   private textTapReadAloud = false;
   /** When true, sequence completion may auto-advance (book mode). */
   private bookAdvanceArmed = false;
+  /** Distinguishes story VO vs instruction VO for completion handling. */
+  private readAloudPhase: 'idle' | 'story' | 'instruction' = 'idle';
+  private triggerTimers: ReturnType<typeof setTimeout>[] = [];
+  private attentionClassNames = new Set<string>();
   private btnPrev: HTMLButtonElement;
   private btnRead: HTMLButtonElement;
   private btnNext: HTMLButtonElement;
@@ -564,6 +576,11 @@ export class Storybook {
     if (this.navLocked) return Promise.resolve();
     const clips = this.buildReadAloudClips();
     this.bookAdvanceArmed = this.readAloudAutoPlay === 'book';
+    this.readAloudPhase = 'story';
+    if (clips.length === 0) {
+      this.handleReadAloudComplete();
+      return Promise.resolve();
+    }
     return this.readAloud.playSequence(clips);
   }
 
@@ -579,6 +596,8 @@ export class Storybook {
 
   /** Replace the loaded story from a File / URL / Story object. */
   async replaceStory(source: StorySource | Story, storyName?: string): Promise<void> {
+    this.readAloudPhase = 'idle';
+    this.clearPageTriggers();
     this.readAloud.stop();
     const previous = this.loaded;
     const loaded = await loadStory(source, {
@@ -753,6 +772,7 @@ export class Storybook {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.clearPageTriggers();
     this.teardownPageGames();
     this.readAloud.destroy();
     this.bus.unregister(this.sfxAudio);
@@ -767,6 +787,8 @@ export class Storybook {
 
   private async navigate(action: () => Promise<void>): Promise<void> {
     this.bookAdvanceArmed = false;
+    this.readAloudPhase = 'idle';
+    this.clearPageTriggers();
     this.readAloud.stop();
     await action();
     this.layoutStage();
@@ -813,6 +835,8 @@ export class Storybook {
       void this.syncPageGames().then(() => {
         this.syncChromeNavState();
         this.syncAutoplayToggleClasses();
+        this.clearPageTriggers();
+        this.armPageEnterTriggers();
         this.emit('pagechange', payload);
         if (
           (this.readAloudAutoPlay === 'page' || this.readAloudAutoPlay === 'book') &&
@@ -824,6 +848,8 @@ export class Storybook {
     });
     this.pager.on('layoutchange', (payload) => {
       this.bookAdvanceArmed = false;
+      this.readAloudPhase = 'idle';
+      this.clearPageTriggers();
       this.readAloud.stop();
       this.layoutStage();
       void this.syncPageGames().then(() => {
@@ -974,21 +1000,158 @@ export class Storybook {
     if (this.navLocked || !this.textTapReadAloud) return;
     if (this.readAloud.isPlaying() && this.readAloud.getPlayingBlockId() === blockId) {
       this.bookAdvanceArmed = false;
+      this.readAloudPhase = 'idle';
       this.readAloud.stop();
       return;
     }
     const clip = this.buildReadAloudClips().find((c) => c.blockId === blockId);
     if (!clip) return;
     this.bookAdvanceArmed = false;
+    this.readAloudPhase = 'idle';
     void this.readAloud.playSequence([clip]);
   }
 
   private handleReadAloudComplete(): void {
+    if (this.readAloudPhase === 'instruction') {
+      this.readAloudPhase = 'idle';
+      this.emit('voend', { phase: 'instruction' });
+      this.tryBookAdvance();
+      return;
+    }
+    if (this.readAloudPhase === 'story') {
+      this.readAloudPhase = 'idle';
+      this.emit('voend', { phase: 'story' });
+      this.scheduleAfterReadAloudTriggers();
+      return;
+    }
+  }
+
+  private tryBookAdvance(): void {
     if (!this.bookAdvanceArmed) return;
     this.bookAdvanceArmed = false;
     if (this.readAloudAutoPlay !== 'book' || this.navLocked) return;
     if (this.hasIncompleteAreaGate() || !this.pager.canNext) return;
     void this.next();
+  }
+
+  private visibleStoryPages(): StoryPage[] {
+    const pages: StoryPage[] = [];
+    for (const leaf of this.visibleLeaves()) {
+      if (leaf.kind !== 'page') continue;
+      const page = this.loaded.story.pages[leaf.pageIndex];
+      if (page) pages.push(page);
+    }
+    return pages;
+  }
+
+  private clearPageTriggers(): void {
+    for (const timer of this.triggerTimers) clearTimeout(timer);
+    this.triggerTimers = [];
+    this.clearAttention();
+  }
+
+  private clearAttention(): void {
+    if (this.attentionClassNames.size === 0) return;
+    for (const className of this.attentionClassNames) {
+      this.element.querySelectorAll(`.${CSS.escape(className)}`).forEach((el) => {
+        el.classList.remove(className);
+      });
+    }
+    this.attentionClassNames.clear();
+  }
+
+  private armPageEnterTriggers(): void {
+    for (const page of this.visibleStoryPages()) {
+      for (const trigger of page.triggers ?? []) {
+        if (trigger.when !== 'pageEnter') continue;
+        if (!triggerMatchesAutoPlay(trigger, this.readAloudAutoPlay)) continue;
+        const delay = trigger.delayMs ?? 0;
+        const timer = setTimeout(() => {
+          if (this.destroyed || this.navLocked) return;
+          this.fireTrigger(page, trigger);
+        }, delay);
+        this.triggerTimers.push(timer);
+      }
+    }
+  }
+
+  private scheduleAfterReadAloudTriggers(): void {
+    const matching: Array<{ page: StoryPage; trigger: PageTrigger }> = [];
+    for (const page of this.visibleStoryPages()) {
+      for (const trigger of page.triggers ?? []) {
+        if (trigger.when !== 'afterReadAloud') continue;
+        if (!triggerMatchesAutoPlay(trigger, this.readAloudAutoPlay)) continue;
+        matching.push({ page, trigger });
+      }
+    }
+
+    if (matching.length === 0) {
+      this.tryBookAdvance();
+      return;
+    }
+
+    let hasInstruction = false;
+    let maxDelay = 0;
+    for (const { page, trigger } of matching) {
+      if (trigger.readAloud) hasInstruction = true;
+      const delay = trigger.delayMs ?? 0;
+      maxDelay = Math.max(maxDelay, delay);
+      const timer = setTimeout(() => {
+        if (this.destroyed || this.navLocked) return;
+        this.fireTrigger(page, trigger);
+      }, delay);
+      this.triggerTimers.push(timer);
+    }
+
+    if (!hasInstruction) {
+      const timer = setTimeout(() => this.tryBookAdvance(), maxDelay);
+      this.triggerTimers.push(timer);
+    }
+  }
+
+  private fireTrigger(page: StoryPage, trigger: PageTrigger): void {
+    if (trigger.highlight) {
+      this.applyAttention(page, trigger);
+    }
+    if (trigger.readAloud) {
+      void this.playInstructionReadAloud(page, trigger);
+    }
+  }
+
+  private applyAttention(page: StoryPage, trigger: PageTrigger): void {
+    const className = resolveHighlightClassName(trigger);
+    const targets = resolveHighlightTargets(page, trigger);
+    const pageEl = this.spreadView.getPageElement(page.id);
+    if (!pageEl) return;
+    for (const id of targets) {
+      const el = pageEl.querySelector(`[data-block-id="${id.replace(/"/g, '\\"')}"]`);
+      if (!el) continue;
+      el.classList.add(className);
+      this.attentionClassNames.add(className);
+    }
+  }
+
+  private async playInstructionReadAloud(
+    page: StoryPage,
+    trigger: PageTrigger,
+  ): Promise<void> {
+    const spec = trigger.readAloud;
+    if (!spec) return;
+    const audioMeta = this.loaded.assets.audioUrls.get(spec.audio);
+    if (!audioMeta) {
+      this.tryBookAdvance();
+      return;
+    }
+    this.readAloudPhase = 'instruction';
+    const pageEl = this.spreadView.getPageElement(page.id);
+    await this.readAloud.playSequence([
+      {
+        url: audioMeta.url,
+        channel: audioMeta.channel,
+        cues: this.resolveCues(spec.cues),
+        root: pageEl,
+      },
+    ]);
   }
 
   private syncAutoplayToggleClasses(): void {
@@ -1013,6 +1176,7 @@ export class Storybook {
 
   private handleTapActions(actions: TapAction[], pageEl: HTMLElement): void {
     if (this.navLocked) return;
+    this.clearAttention();
     for (const action of actions) {
       if ('play' in action) {
         const meta = this.loaded.assets.audioUrls.get(action.play);
@@ -1132,6 +1296,7 @@ export class Storybook {
             onComplete: () => {
               if (session.complete) return;
               session.complete = true;
+              this.clearAttention();
               this.syncChromeNavState();
               this.emit('areacomplete', {
                 pageId: session.pageId,
@@ -1174,6 +1339,7 @@ function createBlankPage(story: Story): StoryPage {
   return {
     id,
     background: { color: '#faf6ef' },
+    triggers: [],
     blocks: [],
   };
 }

@@ -67,6 +67,33 @@ const readAloudSpecSchema = z.object({
   cues: z.union([z.string(), z.array(cueSchema)]).optional(),
 });
 
+export const pageHighlightSchema = z.object({
+  /** Block ids to mark; default: all hotspot + area ids on the page. */
+  targets: z.array(z.string()).optional(),
+  /**
+   * `rect` = bordered pulse (default). `art` reserved for overlay art;
+   * runtime currently uses the same rect treatment.
+   */
+  mode: z.enum(['rect', 'art']).optional().default('rect'),
+  /** CSS class applied to targets (default `fc-attention`). */
+  className: z.string().min(1).optional().default('fc-attention'),
+});
+
+/**
+ * Page-level trigger: attention highlight and/or instruction VO after story
+ * read-aloud, or after a delay on page enter (e.g. when autoplay is off).
+ */
+export const pageTriggerSchema = z.object({
+  when: z.enum(['afterReadAloud', 'pageEnter']),
+  /** Delay after the when-condition before firing. */
+  delayMs: z.number().nonnegative().optional().default(0),
+  /** If set, only fire when host autoplay mode is one of these. */
+  whenAutoPlay: z.array(readAloudAutoPlaySchema).optional(),
+  highlight: pageHighlightSchema.optional(),
+  /** Optional instruction / prompt VO (separate from story text-block VO). */
+  readAloud: readAloudSpecSchema.optional(),
+});
+
 const textBlockSchema = z.object({
   id: z.string(),
   type: z.literal('text'),
@@ -150,6 +177,11 @@ export const pageSchema = z.object({
     .optional(),
   /** Legacy page-level VO. Used when no text block on the page has `readAloud`. */
   readAloud: readAloudSpecSchema.optional(),
+  /**
+   * Post-story / page-enter prompts: attention highlights and optional
+   * instruction VO (see `pageTriggerSchema`).
+   */
+  triggers: z.array(pageTriggerSchema).optional().default([]),
   blocks: z.array(blockSchema).optional().default([]),
 });
 
@@ -230,6 +262,8 @@ export type Cue = z.infer<typeof cueSchema>;
 export type LayoutBox = z.infer<typeof layoutBoxSchema>;
 export type TapAction = z.infer<typeof tapActionSchema>;
 export type ReadAloudAutoPlay = z.infer<typeof readAloudAutoPlaySchema>;
+export type PageHighlight = z.infer<typeof pageHighlightSchema>;
+export type PageTrigger = z.infer<typeof pageTriggerSchema>;
 export type AudioChannel = 'vo' | 'sfx' | 'music';
 
 export function parseStory(data: unknown): Story {

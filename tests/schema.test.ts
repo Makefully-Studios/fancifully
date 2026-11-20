@@ -137,6 +137,44 @@ describe('parseStory', () => {
     );
   });
 
+  it('accepts page triggers for attention and instruction VO', () => {
+    const story = parseStory({
+      id: 't',
+      pageSize: { width: 100, height: 100 },
+      pages: [
+        {
+          id: 'p1',
+          triggers: [
+            {
+              when: 'afterReadAloud',
+              delayMs: 600,
+              whenAutoPlay: ['page', 'book'],
+              highlight: { mode: 'rect', targets: ['h1'] },
+              readAloud: { audio: 'ix1', cues: 'ixVtt' },
+            },
+            {
+              when: 'pageEnter',
+              delayMs: 5000,
+              whenAutoPlay: ['off'],
+              highlight: { mode: 'rect' },
+            },
+          ],
+          blocks: [
+            {
+              id: 'h1',
+              type: 'hotspot',
+              onTap: [],
+            },
+          ],
+        },
+      ],
+    });
+    assert.equal(story.pages[0].triggers?.length, 2);
+    assert.equal(story.pages[0].triggers?.[0]?.when, 'afterReadAloud');
+    assert.equal(story.pages[0].triggers?.[0]?.highlight?.className, 'fc-attention');
+    assert.equal(story.pages[0].triggers?.[1]?.delayMs, 5000);
+  });
+
   it('accepts text-block readAloud, voOrder, and toggleReadAloudAutoPlay', () => {
     const story = parseStory({
       id: 't',
