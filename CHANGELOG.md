@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.12]
+
+### Fixed
+
+- `readAloudCaptions: false` suppresses all story `.fc-captions` (including embedded SYLT); instruction VO still shows line CC
+
 ## [0.5.11]
 
 ### Added
@@ -11,7 +17,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- `readAloudCaptions: false` no longer disables all CC — it only skips mirroring story word cues into `.fc-captions` when the MP3 has no embedded line captions. Embedded SYLT and instruction VO still update the caption bar (SpringRoll `captionsMuted` gates visibility)
+- Instruction VO CC prefers embedded SYLT (sidecar fallback); story caption mirroring remains gated by `readAloudCaptions` / SpringRoll `captionsMuted`
 
 ## [0.5.10]
 

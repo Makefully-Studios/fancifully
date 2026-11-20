@@ -74,11 +74,10 @@ export type StorybookOptions = {
    */
   textTapReadAloud?: boolean;
   /**
-   * When true (default), also mirror **story** word/phrase highlight cues into
-   * `.fc-captions` if the MP3 has no embedded SYLT line captions.
-   * Set `false` when in-page `.fc-cue` highlight is enough — embedded MP3
-   * caption lines (and instruction VO CC) still show, gated by SpringRoll
-   * `captionsMuted`.
+   * Show `.fc-captions` during **story** read-aloud (embedded SYLT preferred,
+   * else word/phrase cues). Default `true`. Set `false` when in-page `.fc-cue`
+   * highlight is enough — instruction VO still uses `.fc-captions` (embedded
+   * SYLT or sidecar fallback), gated by SpringRoll `captionsMuted`.
    */
   readAloudCaptions?: boolean;
   /**
@@ -167,10 +166,7 @@ export class Storybook {
   private cueHighlightOverride: string | undefined;
   private readAloudAutoPlay: ReadAloudAutoPlay = 'off';
   private textTapReadAloud = false;
-  /**
-   * When false, do not mirror story word cues into `.fc-captions`
-   * (embedded SYLT line CC and instruction CC still apply).
-   */
+  /** When false, suppress `.fc-captions` during story VO (instruction still uses CC). */
   private readAloudCaptions = true;
   /** When true, sequence completion may auto-advance (book mode). */
   private bookAdvanceArmed = false;
@@ -1167,17 +1163,18 @@ export class Storybook {
   }
 
   /**
-   * Prefer embedded MP3 SYLT line captions. Otherwise mirror clip cues for
-   * instruction always, and for story only when `readAloudCaptions` is on.
+   * Prefer embedded MP3 SYLT line captions.
+   * Story: only when `readAloudCaptions` is on (else in-page highlight only).
+   * Instruction: always (sidecar cues as fallback when no SYLT).
    */
   private resolveCaptionCues(
     embedded: Cue[] | undefined,
     clipCues: Cue[],
     phase: 'story' | 'instruction',
   ): Cue[] {
+    if (phase === 'story' && !this.readAloudCaptions) return [];
     if (embedded && embedded.length > 0) return embedded;
-    if (phase === 'instruction') return clipCues;
-    return this.readAloudCaptions ? clipCues : [];
+    return clipCues;
   }
 
   /** Update `.fc-captions` from the caption cue stream (SpringRoll mute clears via player). */
