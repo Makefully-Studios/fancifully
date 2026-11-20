@@ -297,7 +297,7 @@ Pages may declare `triggers` that fire after story read-aloud or on page enter:
 | `highlight` | Add `fc-attention` (or custom `className`) to `targets` (default: hotspots + areas). `mode: 'rect' \| 'art'` — rect pulse for now |
 | `readAloud` | Optional instruction clip (separate from story text VO) |
 
-Attention clears on navigate, hotspot tap, or area complete. `voend` emits `{ phase: 'story' \| 'instruction' }`. In `book` autoplay, advance waits for instruction VO when present.
+Attention clears on navigate, hotspot tap, or area complete. `voend` emits `{ phase: 'story' \| 'instruction' }`. In `book` autoplay, advance waits for instruction VO when present. Instruction VO does **not** highlight in-page story text; its cues feed `.fc-captions` only, gated by SpringRoll `captionsMuted` (independent of `readAloudCaptions`, which only suppresses captions during story VO when in-page highlight is enough).
 
 ## Scripts
 

@@ -74,9 +74,10 @@ export type StorybookOptions = {
    */
   textTapReadAloud?: boolean;
   /**
-   * Show the bottom caption line while page read-aloud plays.
-   * Default `true`. Set `false` when cues already highlight in-page text
-   * (the `.fc-captions` element remains for host VO / SpringRoll CC later).
+   * Show the bottom caption line during **story** read-aloud.
+   * Default `true`. Set `false` when cues already highlight in-page text.
+   * Instruction-trigger VO still uses `.fc-captions` (gated by SpringRoll
+   * `captionsMuted`, not this flag).
    */
   readAloudCaptions?: boolean;
   /**
@@ -165,6 +166,8 @@ export class Storybook {
   private cueHighlightOverride: string | undefined;
   private readAloudAutoPlay: ReadAloudAutoPlay = 'off';
   private textTapReadAloud = false;
+  /** When false, suppress `.fc-captions` during story VO (instruction still uses CC). */
+  private readAloudCaptions = true;
   /** When true, sequence completion may auto-advance (book mode). */
   private bookAdvanceArmed = false;
   /** Distinguishes story VO vs instruction VO for completion handling. */
@@ -214,6 +217,7 @@ export class Storybook {
     this.cueHighlightOverride = cueHighlightColor;
     this.readAloudAutoPlay = readAloudAutoPlay;
     this.textTapReadAloud = textTapReadAloud;
+    this.readAloudCaptions = readAloudCaptions;
     this.chromeHiddenByOptions = Boolean(chromeOptions.hidden);
     if (pageGames) {
       for (const [id, factory] of Object.entries(pageGames)) {
@@ -335,12 +339,9 @@ export class Storybook {
     });
 
     this.captionsEl.hidden = true;
-    if (readAloudCaptions) {
-      this.readAloud.onCaption((text) => {
-        this.captionsEl.textContent = text ?? '';
-        this.captionsEl.hidden = !text;
-      });
-    }
+    // Always wire captions so SpringRoll `captionsMuted` can show instruction CC
+    // even when story VO uses in-page highlight only (`readAloudCaptions: false`).
+    this.readAloud.onCaption((text) => this.applyCaptionLine(text));
   }
 
   static async create(container: HTMLElement, options: StorybookOptions): Promise<Storybook> {
@@ -1132,7 +1133,7 @@ export class Storybook {
   }
 
   private async playInstructionReadAloud(
-    page: StoryPage,
+    _page: StoryPage,
     trigger: PageTrigger,
   ): Promise<void> {
     const spec = trigger.readAloud;
@@ -1143,15 +1144,29 @@ export class Storybook {
       return;
     }
     this.readAloudPhase = 'instruction';
-    const pageEl = this.spreadView.getPageElement(page.id);
+    // Captions-only: no `root`, so cues never drive in-book `.fc-cue` highlights.
+    // `.fc-captions` updates for instruction VO (SpringRoll captionsMuted gates them).
     await this.readAloud.playSequence([
       {
         url: audioMeta.url,
         channel: audioMeta.channel,
         cues: this.resolveCues(spec.cues),
-        root: pageEl,
+        root: null,
       },
     ]);
+  }
+
+  /** Update `.fc-captions` from cue text, respecting story vs instruction policy. */
+  private applyCaptionLine(text: string | null): void {
+    const allowStoryCaptions = this.readAloudCaptions;
+    const isInstruction = this.readAloudPhase === 'instruction';
+    if (!isInstruction && !allowStoryCaptions) {
+      this.captionsEl.textContent = '';
+      this.captionsEl.hidden = true;
+      return;
+    }
+    this.captionsEl.textContent = text ?? '';
+    this.captionsEl.hidden = !text;
   }
 
   private syncAutoplayToggleClasses(): void {

@@ -537,7 +537,8 @@
 }
 
 /* Page-trigger attention (bordered rect pulse; no layout shift). */
-.fc-attention {
+.fc-attention,
+.fc-block-hotspot.fc-attention:focus-visible {
   outline: 3px solid var(--fc-attention-color, #fde26e);
   outline-offset: 2px;
   box-shadow:

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.10]
+
+### Fixed
+
+- Instruction VO plays captions-only (no in-book `.fc-cue` highlight); story text highlight stays tied to story VO
+- Instruction CC uses `.fc-captions` gated by SpringRoll `captionsMuted`, even when `readAloudCaptions: false` (story in-page only)
+- `.fc-attention` outline wins over hotspot `:focus-visible { outline: none }`
+
 ## [0.5.9]
 
 ### Added
