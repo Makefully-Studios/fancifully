@@ -1,3 +1,4 @@
+import { extractCaptionCuesFromAudio } from '../audio/id3Captions.js';
 import type { LoadProgress } from '../springroll/loading.js';
 import { parseStory, type Cue, type Story, type StoryAsset } from '../schema/story.js';
 import { parseVtt } from '../sync/parseVtt.js';
@@ -19,9 +20,16 @@ import {
   unpackZip,
 } from './zipArchive.js';
 
+export type LoadedAudioMeta = {
+  url: string;
+  channel: 'vo' | 'sfx' | 'music';
+  /** Line-level CC from embedded ID3 SYLT (`captions`), when present. */
+  captionCues?: Cue[];
+};
+
 export type LoadedAssets = {
   images: Map<string, HTMLImageElement>;
-  audioUrls: Map<string, { url: string; channel: 'vo' | 'sfx' | 'music' }>;
+  audioUrls: Map<string, LoadedAudioMeta>;
   cues: Map<string, Cue[]>;
   html: Map<string, string>;
 };
@@ -214,7 +222,7 @@ async function preloadAssets(
   progressEnd: number,
 ): Promise<LoadedAssets> {
   const images = new Map<string, HTMLImageElement>();
-  const audioUrls = new Map<string, { url: string; channel: 'vo' | 'sfx' | 'music' }>();
+  const audioUrls = new Map<string, LoadedAudioMeta>();
   const cues = new Map<string, Cue[]>();
   const html = new Map<string, string>();
 
@@ -271,7 +279,13 @@ async function preloadAssets(
       if (asset.type === 'image') {
         images.set(id, await loadImage(url));
       } else if (asset.type === 'audio') {
-        audioUrls.set(id, { url, channel: asset.channel ?? 'vo' });
+        const channel = asset.channel ?? 'vo';
+        const captionCues = await tryLoadEmbeddedCaptionCues(url);
+        audioUrls.set(id, {
+          url,
+          channel,
+          ...(captionCues.length > 0 ? { captionCues } : {}),
+        });
       } else if (asset.type === 'vtt') {
         cues.set(id, parseVtt(await fetchText(url)));
       } else if (asset.type === 'html') {
@@ -311,6 +325,18 @@ async function fetchText(url: string): Promise<string> {
     throw new Error(`Failed to load ${url}: ${response.status}`);
   }
   return response.text();
+}
+
+/** Soft-fail: embedded SYLT CC when tags are present; empty on CORS / missing tags. */
+async function tryLoadEmbeddedCaptionCues(url: string): Promise<Cue[]> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return [];
+    const buffer = await response.arrayBuffer();
+    return extractCaptionCuesFromAudio(buffer);
+  } catch {
+    return [];
+  }
 }
 
 export function revokeLoadedStory(loaded: LoadedStory): void {

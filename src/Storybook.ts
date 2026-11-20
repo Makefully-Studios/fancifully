@@ -74,10 +74,11 @@ export type StorybookOptions = {
    */
   textTapReadAloud?: boolean;
   /**
-   * Show the bottom caption line during **story** read-aloud.
-   * Default `true`. Set `false` when cues already highlight in-page text.
-   * Instruction-trigger VO still uses `.fc-captions` (gated by SpringRoll
-   * `captionsMuted`, not this flag).
+   * When true (default), also mirror **story** word/phrase highlight cues into
+   * `.fc-captions` if the MP3 has no embedded SYLT line captions.
+   * Set `false` when in-page `.fc-cue` highlight is enough — embedded MP3
+   * caption lines (and instruction VO CC) still show, gated by SpringRoll
+   * `captionsMuted`.
    */
   readAloudCaptions?: boolean;
   /**
@@ -166,7 +167,10 @@ export class Storybook {
   private cueHighlightOverride: string | undefined;
   private readAloudAutoPlay: ReadAloudAutoPlay = 'off';
   private textTapReadAloud = false;
-  /** When false, suppress `.fc-captions` during story VO (instruction still uses CC). */
+  /**
+   * When false, do not mirror story word cues into `.fc-captions`
+   * (embedded SYLT line CC and instruction CC still apply).
+   */
   private readAloudCaptions = true;
   /** When true, sequence completion may auto-advance (book mode). */
   private bookAdvanceArmed = false;
@@ -339,8 +343,8 @@ export class Storybook {
     });
 
     this.captionsEl.hidden = true;
-    // Always wire captions so SpringRoll `captionsMuted` can show instruction CC
-    // even when story VO uses in-page highlight only (`readAloudCaptions: false`).
+    // Always wire captions: SpringRoll `captionsMuted` gates the bar; clip
+    // `captionCues` (embedded SYLT preferred) choose the line text.
     this.readAloud.onCaption((text) => this.applyCaptionLine(text));
   }
 
@@ -967,10 +971,12 @@ export class Storybook {
         const root =
           pageEl?.querySelector(`[data-block-id="${block.id.replace(/"/g, '\\"')}"]`) ??
           pageEl;
+        const cues = this.resolveCues(spec.cues);
         clips.push({
           url: audioMeta.url,
           channel: audioMeta.channel,
-          cues: this.resolveCues(spec.cues),
+          cues,
+          captionCues: this.resolveCaptionCues(audioMeta.captionCues, cues, 'story'),
           root,
           blockId: block.id,
         });
@@ -981,11 +987,13 @@ export class Storybook {
     if (!page.readAloud) return [];
     const audioMeta = this.loaded.assets.audioUrls.get(page.readAloud.audio);
     if (!audioMeta) return [];
+    const cues = this.resolveCues(page.readAloud.cues);
     return [
       {
         url: audioMeta.url,
         channel: audioMeta.channel,
-        cues: this.resolveCues(page.readAloud.cues),
+        cues,
+        captionCues: this.resolveCaptionCues(audioMeta.captionCues, cues, 'story'),
         root: pageEl,
       },
     ];
@@ -1144,27 +1152,36 @@ export class Storybook {
       return;
     }
     this.readAloudPhase = 'instruction';
-    // Captions-only: no `root`, so cues never drive in-book `.fc-cue` highlights.
-    // `.fc-captions` updates for instruction VO (SpringRoll captionsMuted gates them).
+    // Captions-only: no `root`, so word cues never drive in-book `.fc-cue`.
+    // Prefer embedded SYLT line CC; sidecar `-ix.vtt` remains a soft fallback.
+    const cues = this.resolveCues(spec.cues);
     await this.readAloud.playSequence([
       {
         url: audioMeta.url,
         channel: audioMeta.channel,
-        cues: this.resolveCues(spec.cues),
+        cues,
+        captionCues: this.resolveCaptionCues(audioMeta.captionCues, cues, 'instruction'),
         root: null,
       },
     ]);
   }
 
-  /** Update `.fc-captions` from cue text, respecting story vs instruction policy. */
+  /**
+   * Prefer embedded MP3 SYLT line captions. Otherwise mirror clip cues for
+   * instruction always, and for story only when `readAloudCaptions` is on.
+   */
+  private resolveCaptionCues(
+    embedded: Cue[] | undefined,
+    clipCues: Cue[],
+    phase: 'story' | 'instruction',
+  ): Cue[] {
+    if (embedded && embedded.length > 0) return embedded;
+    if (phase === 'instruction') return clipCues;
+    return this.readAloudCaptions ? clipCues : [];
+  }
+
+  /** Update `.fc-captions` from the caption cue stream (SpringRoll mute clears via player). */
   private applyCaptionLine(text: string | null): void {
-    const allowStoryCaptions = this.readAloudCaptions;
-    const isInstruction = this.readAloudPhase === 'instruction';
-    if (!isInstruction && !allowStoryCaptions) {
-      this.captionsEl.textContent = '';
-      this.captionsEl.hidden = true;
-      return;
-    }
     this.captionsEl.textContent = text ?? '';
     this.captionsEl.hidden = !text;
   }

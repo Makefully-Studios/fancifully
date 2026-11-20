@@ -283,7 +283,9 @@ Listen for `areacomplete: { pageId, blockId, game }` for analytics. On page leav
 
 ### VO ↔ text
 
-When a page mounts, Fancifully wraps matching cue payloads into `<span data-cue-id class="fc-cue">` (word- or phrase-level VTT both work) so line breaks stay fixed before read-aloud starts. Prefer `readAloud` on text blocks (`voOrder` optional); page-level `readAloud` remains as a fallback. Host `readAloudAutoPlay` is `'off'` (default), `'page'` (play VO when the page becomes active), or `'book'` (same, then auto-`next()` when clips finish). Set `textTapReadAloud: true` so tapping a VO textbox starts/stops that clip. During playback, matching spans get `is-active`; already-spoken cues also get `is-read` by default (`cueReadHighlight`, or `book.setCueReadHighlight(false)` for active-word-only). Highlight color comes from story `cueHighlightColor`, overridable by `cueHighlightColor` / `setCueHighlightColor` (or CSS `--fc-cue-active-bg` / `--fc-cue-read-bg`). The bottom `.fc-captions` line mirrors cue text by default (`readAloudCaptions: true`); set `false` when in-page highlight is enough.
+When a page mounts, Fancifully wraps matching cue payloads into `<span data-cue-id class="fc-cue">` (word- or phrase-level VTT both work) so line breaks stay fixed before read-aloud starts. Prefer `readAloud` on text blocks (`voOrder` optional); page-level `readAloud` remains as a fallback. Host `readAloudAutoPlay` is `'off'` (default), `'page'` (play VO when the page becomes active), or `'book'` (same, then auto-`next()` when clips finish). Set `textTapReadAloud: true` so tapping a VO textbox starts/stops that clip. During playback, matching spans get `is-active`; already-spoken cues also get `is-read` by default (`cueReadHighlight`, or `book.setCueReadHighlight(false)` for active-word-only). Highlight color comes from story `cueHighlightColor`, overridable by `cueHighlightColor` / `setCueHighlightColor` (or CSS `--fc-cue-active-bg` / `--fc-cue-read-bg`).
+
+**Dual captions path:** in-page highlight always comes from sidecar word/phrase VTT. The bottom `.fc-captions` line prefers **embedded MP3 ID3 SYLT** tracks (descriptor `captions`, ~line length) when present on the audio asset. If there is no SYLT, story VO can mirror highlight cues into the caption bar (`readAloudCaptions: true`, default); set `false` when in-page highlight is enough — embedded line CC and instruction VO still use `.fc-captions`, gated by SpringRoll `captionsMuted`.
 
 ### Page triggers (attention + instruction VO)
 
@@ -297,7 +299,7 @@ Pages may declare `triggers` that fire after story read-aloud or on page enter:
 | `highlight` | Add `fc-attention` (or custom `className`) to `targets` (default: hotspots + areas). `mode: 'rect' \| 'art'` — rect pulse for now |
 | `readAloud` | Optional instruction clip (separate from story text VO) |
 
-Attention clears on navigate, hotspot tap, or area complete. `voend` emits `{ phase: 'story' \| 'instruction' }`. In `book` autoplay, advance waits for instruction VO when present. Instruction VO does **not** highlight in-page story text; its cues feed `.fc-captions` only, gated by SpringRoll `captionsMuted` (independent of `readAloudCaptions`, which only suppresses captions during story VO when in-page highlight is enough).
+Attention clears on navigate, hotspot tap, or area complete. `voend` emits `{ phase: 'story' \| 'instruction' }`. In `book` autoplay, advance waits for instruction VO when present. Instruction VO does **not** highlight in-page story text; its closed captions prefer embedded SYLT, with optional sidecar `-ix.vtt` as fallback, gated by SpringRoll `captionsMuted`.
 
 ## Scripts
 

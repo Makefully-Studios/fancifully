@@ -6,7 +6,13 @@ import type { AudioBus } from './AudioBus.js';
 export type ReadAloudClip = {
   url: string;
   channel: 'vo' | 'sfx' | 'music';
+  /** Word/phrase cues for in-page highlight when `root` is set. */
   cues: Cue[];
+  /**
+   * Line cues for `.fc-captions`. Prefer embedded MP3 SYLT (`captionCues` on
+   * audio meta). When omitted, falls back to `cues`.
+   */
+  captionCues?: Cue[];
   root: ParentNode | null;
   /** Text-block id when this clip belongs to a VO textbox. */
   blockId?: string;
@@ -15,7 +21,10 @@ export type ReadAloudClip = {
 export class ReadAloudPlayer {
   private bus: AudioBus;
   private audio: HTMLAudioElement;
+  /** Drives in-page `.fc-cue` highlight. */
   private timeline = new CueTimeline();
+  /** Drives `.fc-captions` independently of highlight. */
+  private captionTimeline = new CueTimeline();
   private queue: ReadAloudClip[] = [];
   private raf = 0;
   private captionsMuted = false;
@@ -88,6 +97,7 @@ export class ReadAloudPlayer {
     this.audio.removeAttribute('src');
     this.audio.load();
     this.timeline.reset();
+    this.captionTimeline.reset();
     this.cancelTick();
     this.onCaptionLine?.(null);
   }
@@ -105,6 +115,7 @@ export class ReadAloudPlayer {
       this.playing = false;
       this.currentBlockId = null;
       this.timeline.reset();
+      this.captionTimeline.reset();
       this.onCaptionLine?.(null);
       if (finished) this.onSequenceComplete?.();
       return;
@@ -112,10 +123,12 @@ export class ReadAloudPlayer {
 
     this.currentBlockId = next.blockId ?? null;
     this.timeline.setCues(next.cues);
+    this.captionTimeline.setCues(next.captionCues ?? next.cues);
     if (next.root) {
       applyCueSpans(next.root, next.cues);
     }
     this.timeline.attach(next.root);
+    this.captionTimeline.attach(null);
     this.bus.register(this.audio, next.channel);
     this.audio.src = next.url;
     this.bus.applyTo(this.audio, next.channel);
@@ -134,9 +147,11 @@ export class ReadAloudPlayer {
     const tick = () => {
       if (!this.playing) return;
       if (!this.bus.isPaused && !this.audio.paused) {
-        const cue = this.timeline.update(this.audio.currentTime);
+        const time = this.audio.currentTime;
+        this.timeline.update(time);
+        const caption = this.captionTimeline.update(time);
         if (!this.captionsMuted) {
-          this.onCaptionLine?.(cue?.text ?? cue?.id ?? null);
+          this.onCaptionLine?.(caption?.text ?? caption?.id ?? null);
         }
       }
       this.raf = requestAnimationFrame(tick);

@@ -94,8 +94,19 @@ export {
   FANCI_EXTENSION,
   type LoadedStory,
   type LoadedAssets,
+  type LoadedAudioMeta,
   type LoadStoryOptions,
 } from './load/loadStory.js';
+export {
+  readAudioTags,
+  getTimedCueTracks,
+  findCaptionsTrack,
+  syltToCues,
+  extractCaptionCuesFromAudio,
+  type TimedCue,
+  type TimedCueTrack,
+  type AudioTagResult,
+} from './audio/id3Captions.js';
 export { isFanciFile, extensionOf } from './load/fanciFile.js';
 export type { StorySource, PackageKind } from './load/packageTypes.js';
 export { loadFanciFromBytes, loadFanciFromZip, findStoryJsonPath } from './load/loadFanci.js';
