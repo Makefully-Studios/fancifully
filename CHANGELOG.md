@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.14]
+
+### Fixed
+
+- `fabricLikeToPage` preserves text-block `readAloud` / `voOrder` and image/hotspot `className` when syncing geometry (editor round-trip)
+
 ## [0.5.13]
 
 ### Fixed

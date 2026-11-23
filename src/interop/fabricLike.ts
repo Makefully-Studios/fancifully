@@ -40,6 +40,8 @@ export type FabricLikeObject = {
   game?: string;
   requireComplete?: boolean;
   params?: Record<string, unknown>;
+  /** Image / hotspot CSS class (round-trips through Fabric customProperties). */
+  className?: string;
 };
 
 export type FabricLikePage = {
@@ -74,6 +76,7 @@ export type FabricLikeImageDescriptor = {
   /** Resolved image URL when available (editor loads via Fabric). */
   src?: string;
   fit?: 'contain' | 'cover' | 'fill' | 'none';
+  className?: string;
 };
 
 export type FabricLikeHotspotDescriptor = {
@@ -87,6 +90,7 @@ export type FabricLikeHotspotDescriptor = {
   onTap?: TapAction[];
   onComplete?: TapAction[];
   requiredTaps?: number;
+  className?: string;
 };
 
 export type FabricLikeAreaDescriptor = {
@@ -144,9 +148,10 @@ export function fabricLikeToPage(
 ): StoryPage {
   const syncHotspots = options?.syncHotspots === true;
   const syncAreas = options?.syncAreas === true;
+  // Include hotspots/areas so className and other non-geometry fields can merge.
   const byId = new Map<string, StoryBlock>();
   for (const block of previousPage.blocks) {
-    if (block.type !== 'hotspot' && block.type !== 'area') byId.set(block.id, { ...block });
+    byId.set(block.id, { ...block });
   }
 
   const nextEditable: StoryBlock[] = [];
@@ -190,6 +195,8 @@ export function fabricLikeToPage(
         html,
         style,
         htmlSrc: prevText?.htmlSrc,
+        ...(prevText?.readAloud ? { readAloud: prevText.readAloud } : {}),
+        ...(prevText?.voOrder != null ? { voOrder: prevText.voOrder } : {}),
       });
     } else if (blockType === 'image') {
       const width = Math.round((obj.width ?? 0) * (obj.scaleX ?? 1));
@@ -201,17 +208,19 @@ export function fabricLikeToPage(
       const layout = serializeLayoutBox(left, top, width, height, prevImage?.layout, pageSize);
       const fit = obj.fit ?? prevImage?.layout?.fit;
       if (fit) layout.fit = fit;
+      const className = obj.className ?? prevImage?.className;
       nextEditable.push({
         id: blockId,
         type: 'image',
         asset: assetId,
         layout,
-        className: prevImage?.className,
+        ...(className ? { className } : {}),
       });
     } else if (blockType === 'hotspot') {
       const width = Math.round((obj.width ?? 0) * (obj.scaleX ?? 1));
       const height = Math.round((obj.height ?? 0) * (obj.scaleY ?? 1));
       const prevHotspot = prev && prev.type === 'hotspot' ? prev : undefined;
+      const className = obj.className ?? prevHotspot?.className;
       nextEditable.push({
         id: blockId,
         type: 'hotspot',
@@ -220,6 +229,7 @@ export function fabricLikeToPage(
         onComplete: obj.onComplete ?? prevHotspot?.onComplete ?? [],
         requiredTaps: obj.requiredTaps ?? prevHotspot?.requiredTaps,
         ariaLabel: obj.ariaLabel ?? prevHotspot?.ariaLabel,
+        ...(className ? { className } : {}),
       });
     } else if (blockType === 'area') {
       const width = Math.round((obj.width ?? 0) * (obj.scaleX ?? 1));
@@ -321,6 +331,7 @@ export function pageToFabricLike(
         height: box.height,
         src: imgEl.src,
         fit: block.layout?.fit,
+        className: block.className,
       });
     } else if (block.type === 'hotspot') {
       const box = boxToPixels(block.layout, pageSize);
@@ -335,6 +346,7 @@ export function pageToFabricLike(
         onTap: block.onTap,
         onComplete: block.onComplete,
         requiredTaps: block.requiredTaps,
+        className: block.className,
       });
     } else if (block.type === 'area') {
       const box = boxToPixels(block.layout, pageSize);

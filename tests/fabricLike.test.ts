@@ -67,6 +67,91 @@ describe('fabricLikeToPage', () => {
       'sfx1',
     );
   });
+
+  it('preserves text readAloud/voOrder and hotspot/image className when syncing', () => {
+    const page: StoryPage = {
+      id: 'p1',
+      blocks: [
+        {
+          id: 't1',
+          type: 'text',
+          layout: { x: 10, y: 10, width: 100, height: 40 },
+          html: '<p>VO</p>',
+          readAloud: { audio: 'page-01Vo', cues: 'page-01Vtt' },
+          voOrder: 2,
+        },
+        {
+          id: 'img1',
+          type: 'image',
+          asset: 'art1',
+          layout: { x: 0, y: 0, width: 50, height: 50 },
+          className: 'fc-effect-reveal',
+        },
+        {
+          id: 'h1',
+          type: 'hotspot',
+          layout: { x: 20, y: 20, width: 40, height: 40 },
+          className: 'goldipup-autoplay-toggle',
+          onTap: [{ toggleReadAloudAutoPlay: ['page', 'off'] }],
+        },
+      ],
+    };
+
+    const next = fabricLikeToPage(
+      [
+        {
+          blockId: 't1',
+          blockType: 'text',
+          left: 12,
+          top: 14,
+          width: 100,
+          height: 40,
+          text: 'VO',
+        },
+        {
+          blockId: 'img1',
+          blockType: 'image',
+          left: 0,
+          top: 0,
+          width: 50,
+          height: 50,
+          scaleX: 1,
+          scaleY: 1,
+          assetId: 'art1',
+        },
+        {
+          blockId: 'h1',
+          blockType: 'hotspot',
+          left: 22,
+          top: 24,
+          width: 40,
+          height: 40,
+          scaleX: 1,
+          scaleY: 1,
+          onTap: [{ toggleReadAloudAutoPlay: ['page', 'off'] }],
+        },
+      ],
+      page,
+      { width: 600, height: 800 },
+      undefined,
+      { syncHotspots: true },
+    );
+
+    const text = next.blocks.find((b) => b.id === 't1');
+    assert.ok(text && text.type === 'text');
+    assert.equal(text.layout.x, 12);
+    assert.deepEqual(text.readAloud, { audio: 'page-01Vo', cues: 'page-01Vtt' });
+    assert.equal(text.voOrder, 2);
+
+    const image = next.blocks.find((b) => b.id === 'img1');
+    assert.ok(image && image.type === 'image');
+    assert.equal(image.className, 'fc-effect-reveal');
+
+    const hotspot = next.blocks.find((b) => b.id === 'h1');
+    assert.ok(hotspot && hotspot.type === 'hotspot');
+    assert.equal(hotspot.className, 'goldipup-autoplay-toggle');
+    assert.equal(hotspot.layout.x, 22);
+  });
 });
 
 describe('pagesToSpreadFabricLike / spreadFabricLikeToPages', () => {
