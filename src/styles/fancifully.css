@@ -563,3 +563,82 @@
   }
 }
 
+/*
+ * Stock interaction effects — no host CSS required.
+ * Put the base class on the image/hotspot (`className`), then add/replay the
+ * state class from a hotspot action (`addClass` / `replayClass`).
+ *
+ *   fc-effect-reveal  + is-revealed   fade in
+ *   fc-effect-burst   + is-burst      one-shot pulse (prefer replayClass)
+ *   fc-effect-choice  + is-correct / is-wrong
+ *   (or add fc-effect-correct / fc-effect-wrong directly)
+ */
+.fc-block-image.fc-effect-reveal,
+.fc-block-hotspot.fc-effect-reveal {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.fc-block-image.fc-effect-reveal.is-revealed,
+.fc-block-hotspot.fc-effect-reveal.is-revealed {
+  opacity: 1;
+}
+
+.fc-block-image.fc-effect-burst,
+.fc-block-hotspot.fc-effect-burst {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fc-block-image.fc-effect-burst.is-burst,
+.fc-block-hotspot.fc-effect-burst.is-burst {
+  opacity: 1;
+  animation: fc-effect-burst 0.55s ease-out;
+}
+
+@keyframes fc-effect-burst {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.2;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+}
+
+.fc-block-image.fc-effect-choice.is-correct,
+.fc-block-hotspot.fc-effect-choice.is-correct,
+.fc-block-image.fc-effect-correct,
+.fc-block-hotspot.fc-effect-correct {
+  outline: 3px solid var(--fc-effect-correct-color, #3d9a5f);
+  outline-offset: 2px;
+}
+
+.fc-block-image.fc-effect-choice.is-wrong,
+.fc-block-hotspot.fc-effect-choice.is-wrong,
+.fc-block-image.fc-effect-wrong,
+.fc-block-hotspot.fc-effect-wrong {
+  outline: 3px solid var(--fc-effect-wrong-color, #c44c3a);
+  outline-offset: 2px;
+  animation: fc-effect-wrong-bounce 0.28s ease;
+}
+
+@keyframes fc-effect-wrong-bounce {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+

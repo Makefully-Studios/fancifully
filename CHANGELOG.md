@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.15]
+
+### Added
+
+- Stock interaction CSS: `fc-effect-reveal` / `fc-effect-burst` / `fc-effect-choice` with `is-revealed`, `is-burst`, `is-correct`, `is-wrong` (plus direct `fc-effect-correct` / `fc-effect-wrong`)
+
 ## [0.5.14]
 
 ### Fixed

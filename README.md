@@ -239,6 +239,18 @@ Stories are JSON packages (not a single HTML document). Text may embed HTML; ima
 
 Optional `requiredTaps` counts taps; after N taps, `onComplete` runs **once** (each tap still runs `onTap`). Optional `className` is applied on the hotspot element.
 
+### Stock visual effects
+
+Fancifully ships CSS presets so books can wire common tap feedback without host styles. Put a **base** class on the image/hotspot `className`, then `addClass` / `replayClass` a **state** class from a hotspot action:
+
+| Base `className` | Action class | Behavior |
+|------------------|--------------|----------|
+| `fc-effect-reveal` | `is-revealed` (`addClass`) | Starts hidden; fades in |
+| `fc-effect-burst` | `is-burst` (`replayClass`) | Starts hidden; one-shot pulse each tap |
+| `fc-effect-choice` | `is-correct` / `is-wrong` | Green outline / red bounce feedback |
+
+You can also `addClass` / `replayClass` `fc-effect-correct` or `fc-effect-wrong` directly (no base required). Raw class names remain supported for custom host CSS.
+
 ### Area blocks (host minigames)
 
 `area` marks a rectangle for a host-provided game. Fancifully mounts an empty `.fc-block-area` host; the host registers the game:
