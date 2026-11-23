@@ -251,6 +251,19 @@ Fancifully ships CSS presets so books can wire common tap feedback without host 
 
 You can also `addClass` / `replayClass` `fc-effect-correct` or `fc-effect-wrong` directly (no base required). Raw class names remain supported for custom host CSS.
 
+### Area blocks (built-in + host minigames)
+
+`area` marks a rectangle for a page game. Fancifully mounts an empty `.fc-block-area` host and looks up `area.game` in the built-in registry, then host `pageGames` / `registerPageGame`.
+
+**Built-in composables** (params stored on the area; art is story image assets):
+
+| `game` id | Params | Behavior |
+|-----------|--------|----------|
+| `fc.drag-match` | `pieces[{id,asset,match,label?}]`, `zones[{id,asset?,expects,label?}]`, `tray?: 'before'\|'after'` | Drag pieces onto zones where `match === expects` |
+| `fc.count-units` | `targetCount`, `unitAsset`, `trackAsset?`, `label?` | Tap to place N unit sprites; then complete |
+
+Hosts can still register custom games for heavier experiences:
+
 ### Area blocks (host minigames)
 
 `area` marks a rectangle for a host-provided game. Fancifully mounts an empty `.fc-block-area` host; the host registers the game:

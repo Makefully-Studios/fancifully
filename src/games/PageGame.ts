@@ -43,9 +43,11 @@ export function unregisterPageGame(id: string): void {
   registry.delete(id);
 }
 
-/** Clear all registrations (tests). */
+/** Clear all registrations (tests). Built-ins are re-registered afterward. */
 export function clearPageGameRegistry(): void {
   registry.clear();
+  // Lazy import avoided — callers that need builtins after clear should call
+  // registerBuiltInPageGames() (Storybook.create always does).
 }
 
 /** True when any mounted area with `requireComplete` has not called `onComplete`. */

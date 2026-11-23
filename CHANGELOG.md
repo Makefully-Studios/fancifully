@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.16]
+
+### Added
+
+- Built-in area games `fc.drag-match` and `fc.count-units` (book-stored composables with stock CSS)
+- `registerBuiltInPageGames` / `BUILTIN_PAGE_GAME_IDS` exports (also registered on package import and `Storybook.create`)
+
 ## [0.5.15]
 
 ### Added

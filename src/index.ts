@@ -89,6 +89,18 @@ export {
   type PageGameHandle,
 } from './games/PageGame.js';
 export {
+  registerBuiltInPageGames,
+  BUILTIN_PAGE_GAME_IDS,
+  DRAG_MATCH_GAME_ID,
+  COUNT_UNITS_GAME_ID,
+  type DragMatchParams,
+  type DragMatchPiece,
+  type DragMatchZone,
+  type CountUnitsParams,
+} from './games/builtins.js';
+import { registerBuiltInPageGames as _registerBuiltIns } from './games/builtins.js';
+_registerBuiltIns();
+export {
   loadStory,
   revokeLoadedStory,
   FANCI_EXTENSION,

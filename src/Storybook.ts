@@ -1,6 +1,7 @@
 import { AudioBus } from './audio/AudioBus.js';
 import { ReadAloudPlayer, type ReadAloudClip } from './audio/ReadAloudPlayer.js';
 import type { FlipStyleInput } from './flip/index.js';
+import { registerBuiltInPageGames } from './games/builtins.js';
 import {
   getRegisteredPageGame,
   isAreaNavGated,
@@ -345,6 +346,7 @@ export class Storybook {
   }
 
   static async create(container: HTMLElement, options: StorybookOptions): Promise<Storybook> {
+    registerBuiltInPageGames();
     const features = { ...DEFAULT_FEATURES, ...options.features };
     let springroll = options.springroll ?? null;
     let loadGate: { resolve: () => void } | null = null;

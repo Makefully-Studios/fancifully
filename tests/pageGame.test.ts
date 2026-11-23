@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, afterEach, beforeEach } from 'node:test';
+import {
+  COUNT_UNITS_GAME_ID,
+  DRAG_MATCH_GAME_ID,
+  registerBuiltInPageGames,
+} from '../src/games/builtins.ts';
 import {
   clearPageGameRegistry,
   getRegisteredPageGame,
@@ -13,9 +18,21 @@ import { advanceHotspotTaps } from '../src/render/blocks/HotspotBlock.ts';
 
 afterEach(() => {
   clearPageGameRegistry();
+  registerBuiltInPageGames();
+});
+
+beforeEach(() => {
+  registerBuiltInPageGames();
 });
 
 describe('page game registry', () => {
+  it('registers built-in drag-match and count-units', () => {
+    assert.ok(listRegisteredPageGames().includes(DRAG_MATCH_GAME_ID));
+    assert.ok(listRegisteredPageGames().includes(COUNT_UNITS_GAME_ID));
+    assert.ok(getRegisteredPageGame(DRAG_MATCH_GAME_ID));
+    assert.ok(getRegisteredPageGame(COUNT_UNITS_GAME_ID));
+  });
+
   it('registers, resolves, and clears factories', () => {
     const handle: PageGameHandle = { destroy() {} };
     registerPageGame('demo.game', () => handle);
